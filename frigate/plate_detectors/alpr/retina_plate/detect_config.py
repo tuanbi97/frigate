@@ -1,6 +1,8 @@
+import os 
+
 cfg_plate = {
-    'path': './retina_plate/weight/Retina_Plate_dynamix_size.onnx',
-    'path_pth': 'retina_plate/weight/LP_detect_92.pth',
+    'path': os.path.dirname(os.path.realpath(__file__)) + '/weight/Retina_Plate_dynamix_size.onnx',
+    'path_pth': os.path.dirname(os.path.realpath(__file__)) + '/weight/LP_detect_92.pth',
     'name': 'mobilenet0.25',
     'dense_anchor': False,
     'min_dim': 512,
