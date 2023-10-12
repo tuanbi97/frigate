@@ -17,6 +17,7 @@ PLUS_API_HOST = "https://api.frigate.video"
 ATTRIBUTE_LABEL_MAP = {
     "person": ["face", "amazon"],
     "car": ["ups", "fedex", "amazon", "license_plate"],
+    "motorcycle": ["license_plate"]
 }
 ALL_ATTRIBUTE_LABELS = [
     item for sublist in ATTRIBUTE_LABEL_MAP.values() for item in sublist

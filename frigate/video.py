@@ -1,3 +1,4 @@
+import copy
 import datetime
 import logging
 import math
@@ -480,6 +481,7 @@ def track_camera(
 
     frame_shape = config.frame_shape
     objects_to_track = config.objects.track
+    vehicle_objects_to_track = config.objects.vehicle_track
     object_filters = config.objects.filters
 
     motion_detector = ImprovedMotionDetector(
@@ -511,6 +513,7 @@ def track_camera(
         detected_objects_queue,
         process_info,
         objects_to_track,
+        vehicle_objects_to_track,
         object_filters,
         detection_enabled,
         motion_enabled,
@@ -736,6 +739,7 @@ def process_frames(
     detected_objects_queue: mp.Queue,
     process_info: dict,
     objects_to_track: list[str],
+    vehicle_objects_to_track: list[str],
     object_filters,
     detection_enabled: mp.Value,
     motion_enabled: mp.Value,
@@ -940,6 +944,30 @@ def process_frames(
             else:
                 object_tracker.update_frame_times(frame_time)
 
+        # test add fake license_plate
+        # print(consolidated_detections[0])
+        fake_license_plates = []
+        for detection in consolidated_detections:
+            fake_license_plate = (
+                "license_plate",
+                detection[1],
+                (
+                    detection[2][0] + (detection[2][2] - detection[2][0]) // 4,
+                    detection[2][1] + (detection[2][3] - detection[2][1]) // 4,
+                    detection[2][0] + (detection[2][2] - detection[2][0]) // 4 * 3,
+                    detection[2][1] + (detection[2][3] - detection[2][1]) // 4 * 3,
+                ),
+                copy.copy(detection[3]),
+                copy.copy(detection[4]),
+                copy.copy(detection[5]),
+            )
+            logging.info("detection box")
+            logging.info(detection[2])
+            logging.info("fake plate box")
+            logging.info(fake_license_plate[2])
+            fake_license_plates.append(fake_license_plate)
+        consolidated_detections.extend(fake_license_plates)
+
         # group the attribute detections based on what label they apply to
         attribute_detections = {}
         for label, attribute_labels in ATTRIBUTE_LABEL_MAP.items():
@@ -976,6 +1004,20 @@ def process_frames(
                 f"debug/frames/track-{'{:.6f}'.format(frame_time)}.jpg", bgr_frame
             )
         # debug
+        if False:
+            bgr_frame = cv2.cvtColor(
+                frame,
+                cv2.COLOR_YUV2BGR_I420,
+            )
+            logging.info(np.shape(bgr_frame))
+            for idx, obj in enumerate(object_tracker.tracked_objects.values()):
+                b = obj["box"]
+                crop_image = bgr_frame[b[1] : b[3], b[0] : b[2]]
+                cv2.imwrite(
+                    f"debug/plate_test/{camera_name}-{'{:.6f}'.format(frame_time)}-{idx}.jpg",
+                    crop_image,
+                )
+
         if False:
             bgr_frame = cv2.cvtColor(
                 frame,
