@@ -781,6 +781,10 @@ def process_frames(
         frame = frame_manager.get(
             f"{camera_name}{frame_time}", (frame_shape[0] * 3 // 2, frame_shape[1])
         )
+        rgb_frame = cv2.cvtColor(
+            frame,
+            cv2.COLOR_YUV2RGB_I420,
+        )
 
         if frame is None:
             logger.info(f"{camera_name}: frame {frame_time} is not in memory store.")
@@ -944,7 +948,9 @@ def process_frames(
                     for d in consolidated_detections
                     if d[0] in vehicle_objects_to_track
                 ]
-                license_plates = detect_plate(frame, detected_vehicles, plate_detector)
+                license_plates = detect_plate(
+                    rgb_frame, detected_vehicles, plate_detector
+                )
                 consolidated_detections.extend(license_plates)
 
                 tracked_detections = [
@@ -1114,13 +1120,9 @@ def process_frames(
 
 def detect_plate(frame, detected_vehicles, detector: Plate_Detector):
     plates = []
-    bgr_frame = cv2.cvtColor(
-        frame,
-        cv2.COLOR_YUV2RGB_I420,
-    )
     for vehicle in detected_vehicles:
         bbox = vehicle[2]
-        image = bgr_frame[bbox[1] : bbox[3], bbox[0] : bbox[2]]
+        image = frame[bbox[1] : bbox[3], bbox[0] : bbox[2]]
         image_processed = detector.get_input(image)
         model_output = detector.detect(image_processed)
         detection_result = detector.post_process(
@@ -1135,7 +1137,7 @@ def detect_plate(frame, detected_vehicles, detector: Plate_Detector):
             )
             license_plate = (
                 "plate",
-                1.0,
+                b[4].item(),
                 plate_box,
                 copy.copy(vehicle[3]),
                 copy.copy(vehicle[4]),
