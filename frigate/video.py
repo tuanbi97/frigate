@@ -22,6 +22,7 @@ from frigate.log import LogPipe
 from frigate.motion import MotionDetector
 from frigate.motion.improved_motion import ImprovedMotionDetector
 from frigate.object_detection import RemoteObjectDetector
+from frigate.plate_detectors.alpr.plate_detector_gpu import Plate_Detector
 from frigate.ptz.autotrack import ptz_moving_at_frame_time
 from frigate.track import ObjectTracker
 from frigate.track.norfair_tracker import NorfairTracker
@@ -497,6 +498,7 @@ def track_camera(
     )
 
     object_tracker = NorfairTracker(config, ptz_metrics)
+    plate_detector = Plate_Detector()
 
     frame_manager = SharedMemoryFrameManager()
 
@@ -509,6 +511,7 @@ def track_camera(
         frame_manager,
         motion_detector,
         object_detector,
+        plate_detector,
         object_tracker,
         detected_objects_queue,
         process_info,
@@ -735,6 +738,7 @@ def process_frames(
     frame_manager: FrameManager,
     motion_detector: MotionDetector,
     object_detector: RemoteObjectDetector,
+    plate_detector: Plate_Detector,
     object_tracker: ObjectTracker,
     detected_objects_queue: mp.Queue,
     process_info: dict,
@@ -933,6 +937,15 @@ def process_frames(
                 consolidated_detections = get_consolidated_object_detections(
                     detected_object_groups
                 )
+                # detect license plate
+                detected_vehicles = [
+                    d
+                    for d in consolidated_detections
+                    if d[0] in vehicle_objects_to_track
+                ]
+                license_plates = detect_plate(frame, detected_vehicles, plate_detector)
+                consolidated_detections.extend(license_plates)
+
                 tracked_detections = [
                     d
                     for d in consolidated_detections
@@ -946,27 +959,27 @@ def process_frames(
 
         # test add fake license_plate
         # print(consolidated_detections[0])
-        fake_license_plates = []
-        for detection in consolidated_detections:
-            fake_license_plate = (
-                "license_plate",
-                detection[1],
-                (
-                    detection[2][0] + (detection[2][2] - detection[2][0]) // 4,
-                    detection[2][1] + (detection[2][3] - detection[2][1]) // 4,
-                    detection[2][0] + (detection[2][2] - detection[2][0]) // 4 * 3,
-                    detection[2][1] + (detection[2][3] - detection[2][1]) // 4 * 3,
-                ),
-                copy.copy(detection[3]),
-                copy.copy(detection[4]),
-                copy.copy(detection[5]),
-            )
-            logging.info("detection box")
-            logging.info(detection[2])
-            logging.info("fake plate box")
-            logging.info(fake_license_plate[2])
-            fake_license_plates.append(fake_license_plate)
-        consolidated_detections.extend(fake_license_plates)
+        # fake_license_plates = []
+        # for detection in consolidated_detections:
+        #     fake_license_plate = (
+        #         "license_plate",
+        #         detection[1],
+        #         (
+        #             detection[2][0] + (detection[2][2] - detection[2][0]) // 4,
+        #             detection[2][1] + (detection[2][3] - detection[2][1]) // 4,
+        #             detection[2][0] + (detection[2][2] - detection[2][0]) // 4 * 3,
+        #             detection[2][1] + (detection[2][3] - detection[2][1]) // 4 * 3,
+        #         ),
+        #         copy.copy(detection[3]),
+        #         copy.copy(detection[4]),
+        #         copy.copy(detection[5]),
+        #     )
+        #     logging.info("detection box")
+        #     logging.info(detection[2])
+        #     logging.info("fake plate box")
+        #     logging.info(fake_license_plate[2])
+        #     fake_license_plates.append(fake_license_plate)
+        # consolidated_detections.extend(fake_license_plates)
 
         # group the attribute detections based on what label they apply to
         attribute_detections = {}
@@ -1096,3 +1109,38 @@ def process_frames(
             )
             detection_fps.value = object_detector.fps.eps()
             frame_manager.close(f"{camera_name}{frame_time}")
+
+
+def detect_plate(frame, detected_vehicles, detector: Plate_Detector):
+    plates = []
+    bgr_frame = cv2.cvtColor(
+        frame,
+        cv2.COLOR_YUV2RGB_I420,
+    )
+    for vehicle in detected_vehicles:
+        bbox = vehicle[2]
+        image = bgr_frame[bbox[1] : bbox[3], bbox[0] : bbox[2]]
+        image_processed = detector.get_input(image)
+        model_output = detector.detect(image_processed)
+        detection_result = detector.post_process(
+            model_output[0], model_output[1], model_output[2]
+        )
+        for i, b in enumerate(detection_result):
+            plate_box = (
+                    int(bbox[0] + b[0]),
+                    int(bbox[1] + b[1]),
+                    int(bbox[0] + b[2]),
+                    int(bbox[1] + b[3]),
+                )
+            license_plate = (
+                "plate",
+                vehicle[1],
+                plate_box,
+                copy.copy(vehicle[3]),
+                copy.copy(vehicle[4]),
+                copy.copy(vehicle[5]),
+            )
+            # logging.info("license:")
+            # logging.info(license_plate)
+            plates.append(license_plate)
+    return plates

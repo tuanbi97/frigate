@@ -1,20 +1,22 @@
+import numpy as np
 import torch
 import torch.nn as nn
-import torchvision.models.detection.backbone_utils as backbone_utils
 import torchvision.models._utils as _utils
-import torch.nn.functional as F
-from collections import OrderedDict
-import numpy as np
-from retina_plate.models.net import MobileNetV1 as MobileNetV1
-from retina_plate.models.net import FPN as FPN
-from retina_plate.models.net import SSH as SSH
+
+from frigate.plate_detectors.alpr.retina_plate.models.net import FPN as FPN
+from frigate.plate_detectors.alpr.retina_plate.models.net import SSH as SSH
+from frigate.plate_detectors.alpr.retina_plate.models.net import (
+    MobileNetV1 as MobileNetV1,
+)
 
 
 class ClassHead(nn.Module):
     def __init__(self, inchannels=512, num_anchors=3):
         super(ClassHead, self).__init__()
         self.num_anchors = num_anchors
-        self.conv1x1 = nn.Conv2d(inchannels, self.num_anchors * 2, kernel_size=(1, 1), stride=1, padding=0)
+        self.conv1x1 = nn.Conv2d(
+            inchannels, self.num_anchors * 2, kernel_size=(1, 1), stride=1, padding=0
+        )
 
     def forward(self, x):
         out = self.conv1x1(x)
@@ -26,7 +28,9 @@ class ClassHead(nn.Module):
 class BboxHead(nn.Module):
     def __init__(self, inchannels=512, num_anchors=3):
         super(BboxHead, self).__init__()
-        self.conv1x1 = nn.Conv2d(inchannels, num_anchors * 4, kernel_size=(1, 1), stride=1, padding=0)
+        self.conv1x1 = nn.Conv2d(
+            inchannels, num_anchors * 4, kernel_size=(1, 1), stride=1, padding=0
+        )
 
     def forward(self, x):
         out = self.conv1x1(x)
@@ -38,7 +42,9 @@ class BboxHead(nn.Module):
 class LandmarkHead(nn.Module):
     def __init__(self, inchannels=512, num_anchors=3):
         super(LandmarkHead, self).__init__()
-        self.conv1x1 = nn.Conv2d(inchannels, num_anchors * 8, kernel_size=(1, 1), stride=1, padding=0)
+        self.conv1x1 = nn.Conv2d(
+            inchannels, num_anchors * 8, kernel_size=(1, 1), stride=1, padding=0
+        )
 
     def forward(self, x):
         out = self.conv1x1(x)
@@ -48,7 +54,7 @@ class LandmarkHead(nn.Module):
 
 
 class RetinaPlate(nn.Module):
-    def __init__(self, cfg=None, phase='train'):
+    def __init__(self, cfg=None, phase="train"):
         """
         :param cfg:  Network related settings.
         :param phase: train or test.
@@ -56,39 +62,49 @@ class RetinaPlate(nn.Module):
         super(RetinaPlate, self).__init__()
         self.phase = phase
         backbone = None
-        if cfg['name'] == 'mobilenet0.25':
+        if cfg["name"] == "mobilenet0.25":
             backbone = MobileNetV1()
-            if cfg['pretrain']:
-                checkpoint = torch.load("./weights/mobilenetV1X0.25_pretrain.tar", map_location=torch.device('cpu'))
+            if cfg["pretrain"]:
+                checkpoint = torch.load(
+                    "./weights/mobilenetV1X0.25_pretrain.tar",
+                    map_location=torch.device("cpu"),
+                )
                 from collections import OrderedDict
+
                 new_state_dict = OrderedDict()
-                for k, v in checkpoint['state_dict'].items():
+                for k, v in checkpoint["state_dict"].items():
                     name = k[7:]  # remove module.
                     new_state_dict[name] = v
                 # load params
                 backbone.load_state_dict(new_state_dict)
-        elif cfg['name'] == 'Resnet50':
+        elif cfg["name"] == "Resnet50":
             import torchvision.models as models
-            backbone = models.resnet50(pretrained=cfg['pretrain'])
 
-        self.body = _utils.IntermediateLayerGetter(backbone, cfg['return_layers'])
-        in_channels_stage2 = cfg['in_channel']
+            backbone = models.resnet50(pretrained=cfg["pretrain"])
+
+        self.body = _utils.IntermediateLayerGetter(backbone, cfg["return_layers"])
+        in_channels_stage2 = cfg["in_channel"]
         in_channels_list = [
             in_channels_stage2 * 2,
             in_channels_stage2 * 4,
             in_channels_stage2 * 8,
         ]
-        out_channels = cfg['out_channel']
+        out_channels = cfg["out_channel"]
         self.fpn = FPN(in_channels_list, out_channels)
         self.ssh1 = SSH(out_channels, out_channels)
         self.ssh2 = SSH(out_channels, out_channels)
         self.ssh3 = SSH(out_channels, out_channels)
 
         anchors_per_layer = 6
-        self.ClassHead = self._make_class_head(fpn_num=3, inchannels=cfg['out_channel'], anchor_num=anchors_per_layer)
-        self.BboxHead = self._make_bbox_head(fpn_num=3, inchannels=cfg['out_channel'], anchor_num=anchors_per_layer)
-        self.LandmarkHead = self._make_landmark_head(fpn_num=3, inchannels=cfg['out_channel'],
-                                                     anchor_num=anchors_per_layer)
+        self.ClassHead = self._make_class_head(
+            fpn_num=3, inchannels=cfg["out_channel"], anchor_num=anchors_per_layer
+        )
+        self.BboxHead = self._make_bbox_head(
+            fpn_num=3, inchannels=cfg["out_channel"], anchor_num=anchors_per_layer
+        )
+        self.LandmarkHead = self._make_landmark_head(
+            fpn_num=3, inchannels=cfg["out_channel"], anchor_num=anchors_per_layer
+        )
 
     def _make_class_head(self, fpn_num=3, inchannels=64, anchor_num=2):
         classhead = nn.ModuleList()
@@ -120,25 +136,39 @@ class RetinaPlate(nn.Module):
         feature3 = self.ssh3(fpn[2])
         features = [feature1, feature2, feature3]
 
-        bbox_regressions = torch.cat([self.BboxHead[i](feature) for i, feature in enumerate(features)], dim=1)
-        classifications = torch.cat([self.ClassHead[i](feature) for i, feature in enumerate(features)], dim=1)
-        ldm_regressions = torch.cat([self.LandmarkHead[i](feature) for i, feature in enumerate(features)], dim=1)
-        if self.phase == 'train':
+        bbox_regressions = torch.cat(
+            [self.BboxHead[i](feature) for i, feature in enumerate(features)], dim=1
+        )
+        classifications = torch.cat(
+            [self.ClassHead[i](feature) for i, feature in enumerate(features)], dim=1
+        )
+        ldm_regressions = torch.cat(
+            [self.LandmarkHead[i](feature) for i, feature in enumerate(features)], dim=1
+        )
+        if self.phase == "train":
             output = (bbox_regressions, classifications, ldm_regressions)
         else:
             # output = (bbox_regressions, F.softmax(classifications, dim=-1), ldm_regressions)
-            output = (bbox_regressions, classifications,
-                      ldm_regressions)  # To work with qualcomm, I've removed F.softmax. That means I have to process F.softmax to classification in post-processing
+            output = (
+                bbox_regressions,
+                classifications,
+                ldm_regressions,
+            )  # To work with qualcomm, I've removed F.softmax. That means I have to process F.softmax to classification in post-processing
         return output
 
 
 if __name__ == "__main__":
     from torchscope import scope
+
     from config import cfg_plate
 
     cfg = cfg_plate
-    net = RetinaPlate(cfg=cfg, phase='test')
+    net = RetinaPlate(cfg=cfg, phase="test")
     print(net)
+    scope(net, input_size=(3, 480, 850))
+    img = np.random.randn(1, 3, 480, 850)
+    img = img.astype(np.float32)
+    print(net(torch.from_numpy(img))[1].size())
     scope(net, input_size=(3, 480, 850))
     img = np.random.randn(1, 3, 480, 850)
     img = img.astype(np.float32)

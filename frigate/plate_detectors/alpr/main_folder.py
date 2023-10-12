@@ -2,8 +2,7 @@ import glob
 import time
 
 import cv2
-from plate_detector import Plate_Detector
-from plate_recognizer import Plate_Recognizer
+from plate_detector_gpu import Plate_Detector
 from retina_plate.utils.utils import img_transform
 
 # Press the green button in the gutter to run the script.
@@ -13,7 +12,7 @@ if __name__ == "__main__":
     path_image = "/workspace/frigate/debug/plate_test_out/"
     # plate_w = open(path_save,"w+")
     detector = Plate_Detector()
-    recognizer = Plate_Recognizer()
+    # recognizer = Plate_Recognizer()
     lst_img = glob.glob(path_folder)
     lst_time = []
     for idx, p_img in enumerate(lst_img):
@@ -31,6 +30,7 @@ if __name__ == "__main__":
             model_output[0], model_output[1], model_output[2]
         )
         lst_time.append(time.time() - tik)
+        print(lst_time[-1])
         print(detection_result)
         if len(detection_result) != 0:
             for i in range(0, len(detection_result)):
@@ -39,10 +39,10 @@ if __name__ == "__main__":
                 # cv2.waitKey()
                 # Do dilate to cut image into 2 lines (need to know if image is one or two lines)
 
-                ocr_image_processed = recognizer.get_input(plate)
-                ocr_model_out = recognizer.run(ocr_image_processed)
-                ocr_result = recognizer.post_process(ocr_model_out)
-                plate_name.append(ocr_result[0])
+                # ocr_image_processed = recognizer.get_input(plate)
+                # ocr_model_out = recognizer.run(ocr_image_processed)
+                # ocr_result = recognizer.post_process(ocr_model_out)
+                # plate_name.append(ocr_result[0])
             for i, b in enumerate(detection_result):
                 text = "{:.4f}".format(b[4])
                 b = list(map(int, b))
@@ -50,14 +50,14 @@ if __name__ == "__main__":
                 cx = b[0]
                 cy = b[1] + 12
                 # plate_w.write( plate_name[i] +'\n')
-                cv2.putText(
-                    image,
-                    plate_name[i],
-                    (cx, cy),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (0, 255, 0),
-                )
+                # cv2.putText(
+                #     image,
+                #     plate_name[i],
+                #     (cx, cy),
+                #     cv2.FONT_HERSHEY_SIMPLEX,
+                #     1,
+                #     (0, 255, 0),
+                # )
                 # landms
                 cv2.circle(image, (b[5], b[6]), 5, (0, 0, 255), 1)  # red, top left
                 cv2.circle(
