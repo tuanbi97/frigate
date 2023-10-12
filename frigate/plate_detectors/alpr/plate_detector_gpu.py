@@ -16,9 +16,9 @@ from frigate.plate_detectors.alpr.retina_plate.utils.nms.py_cpu_nms import py_cp
 
 
 class Plate_Detector:
-    def __init__(self):
+    def __init__(self, load_to_cpu=False):
         self.debug = False
-        self.model = self.load_model(cfg_plate)
+        self.model = self.load_model(cfg_plate, load_to_cpu)
         self.config = cfg_plate
         self.image_size = (
             cfg_plate["max_size"],
@@ -101,7 +101,7 @@ class Plate_Detector:
         img = np.expand_dims(img, axis=0)
         return torch.from_numpy(img)
 
-    def load_model(self, config, load_to_cpu=True):
+    def load_model(self, config, load_to_cpu=False):
         def remove_prefix(state_dict, prefix):
             """Old style model is stored with all names of parameters sharing common prefix 'module.'"""
             print("remove prefix '{}'".format(prefix))

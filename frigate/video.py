@@ -498,7 +498,8 @@ def track_camera(
     )
 
     object_tracker = NorfairTracker(config, ptz_metrics)
-    plate_detector = Plate_Detector()
+    # Use gpu for Plate detector
+    plate_detector = Plate_Detector(load_to_cpu=False)
 
     frame_manager = SharedMemoryFrameManager()
 
@@ -1127,14 +1128,14 @@ def detect_plate(frame, detected_vehicles, detector: Plate_Detector):
         )
         for i, b in enumerate(detection_result):
             plate_box = (
-                    int(bbox[0] + b[0]),
-                    int(bbox[1] + b[1]),
-                    int(bbox[0] + b[2]),
-                    int(bbox[1] + b[3]),
-                )
+                int(bbox[0] + b[0]),
+                int(bbox[1] + b[1]),
+                int(bbox[0] + b[2]),
+                int(bbox[1] + b[3]),
+            )
             license_plate = (
                 "plate",
-                vehicle[1],
+                1.0,
                 plate_box,
                 copy.copy(vehicle[3]),
                 copy.copy(vehicle[4]),
