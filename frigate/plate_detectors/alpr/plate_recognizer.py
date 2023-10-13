@@ -1,14 +1,18 @@
+import os
+
 import cv2
 import numpy as np
-from LPRnet.LPRnet import *
+
+from .LPRnet.LPRnet import *
 
 
 class Plate_Recognizer:
     def __init__(self):
-        """
-
-        """
-        self.model, self.session = self.load_model("LPRnet/weight/weight_tensorflow/LPRnet_steps515000_loss_1.729.ckpt")
+        """ """
+        self.model, self.session = self.load_model(
+            os.path.dirname(os.path.abspath(__file__))
+            + "/LPRnet/weight/weight_tensorflow/LPRnet_steps515000_loss_1.729.ckpt"
+        )
         self.input_size = (94, 24)
 
     def get_input(self, img, flip=False):
@@ -36,7 +40,7 @@ class Plate_Recognizer:
         def restore_checkpoint(sess, saver, ckpt, is_train=True):
             try:
                 saver.restore(sess, ckpt)
-                print('restore from checkpoint: {}'.format(ckpt))
+                print("restore from checkpoint: {}".format(ckpt))
                 return True
             except:
                 if is_train:
@@ -46,6 +50,7 @@ class Plate_Recognizer:
                 return False
 
         # import os
+
         # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
         config = tf.ConfigProto(log_device_placement=True)
         config.gpu_options.allow_growth = True
@@ -72,11 +77,10 @@ class Plate_Recognizer:
 
     @staticmethod
     def post_process(model_output):
-
         decoded_labels = []
         for item in model_output:
-            expression = ['' if i == -1 else DECODE_DICT[i] for i in item]
-            expression = ''.join(expression)
+            expression = ["" if i == -1 else DECODE_DICT[i] for i in item]
+            expression = "".join(expression)
             decoded_labels.append(expression)
 
         return decoded_labels
@@ -84,4 +88,6 @@ class Plate_Recognizer:
 
 if __name__ == "__main__":
     recognizer = Plate_Recognizer()
+    print("test")
+    print("test")
     print("test")

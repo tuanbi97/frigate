@@ -17,7 +17,7 @@ PLUS_API_HOST = "https://api.frigate.video"
 ATTRIBUTE_LABEL_MAP = {
     "person": ["face", "amazon"],
     "car": ["ups", "fedex", "amazon", "license_plate"],
-    "motorcycle": ["license_plate"]
+    "motorcycle": ["license_plate"],
 }
 ALL_ATTRIBUTE_LABELS = [
     item for sublist in ATTRIBUTE_LABEL_MAP.values() for item in sublist
@@ -52,3 +52,5 @@ MAX_PLAYLIST_SECONDS = 7200  # support 2 hour segments for a single playlist to 
 # Internal Comms Topics
 
 INSERT_MANY_RECORDINGS = "insert_many_recordings"
+
+DEFAULT_LICENSE_PLATE_LABEL = "plate"

@@ -174,6 +174,7 @@ class EventProcessor(threading.Thread):
                         ),
                         "label": a["label"],
                         "score": a["score"],
+                        "text": a["text"],
                     }
                 )
                 for a in event_data["snapshot"]["attributes"]

@@ -670,6 +670,10 @@ export default function Events({ path, ...props }) {
                             ? null
                             : `, ${event.sub_label}: ${(event?.data?.sub_label_score * 100).toFixed(0)}%`}
                         </div>
+                        <div className="capitalize  text-sm flex align-center">
+                          <Score className="w-5 h-5 mr-2 inline" />
+                          {event?.data?.attributes[0]?.text}
+                        </div>
                       </div>
                       <div class="hidden sm:flex flex-col justify-end mr-2">
                         {event.end_time && event.has_snapshot && (event?.data?.type || 'object') == 'object' && (

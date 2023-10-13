@@ -20,7 +20,7 @@ class Plate_Checker:
             r"",  # Cho phep sai 1 so o cuoi
         }
         self.patterns_lv3 = {}
-        self.spam_list = self.get_spam_list()
+        # self.spam_list = self.get_spam_list()
         self.starting_letter = [
             "TM",
             "TC",
@@ -104,7 +104,7 @@ class Plate_Checker:
             else:
                 # print("Tim kiem khong thanh cong.")
                 pass
-        print("Wrong Format: ", input)
+        # print("Wrong Format: ", input)
         return 0, False
 
     @staticmethod
