@@ -1009,7 +1009,9 @@ def process_frames(
                         )
             if obj["label"] == DEFAULT_LICENSE_PLATE_LABEL:
                 for license_result in license_results:
-                    if license_result[0] != 'unknown' and box_inside(obj["box"], (license_result[1][2])):
+                    if license_result[0] != "unknown" and box_inside(
+                        obj["box"], (license_result[1][2])
+                    ):
                         attributes.append(
                             {
                                 "label": "license_number",

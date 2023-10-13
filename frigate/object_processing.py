@@ -20,7 +20,7 @@ from frigate.config import (
     RecordConfig,
     SnapshotsConfig,
 )
-from frigate.const import CLIPS_DIR
+from frigate.const import CLIPS_DIR, DEFAULT_LICENSE_PLATE_LABEL
 from frigate.events.maintainer import EventTypeEnum
 from frigate.ptz.autotrack import PtzAutoTrackerThread
 from frigate.util.image import (
@@ -364,19 +364,19 @@ class TrackedObject:
             )
 
             # draw any attributes
-            for attribute in self.thumbnail_data["attributes"]:
-                box = attribute["box"]
-                draw_box_with_label(
-                    best_frame,
-                    box[0],
-                    box[1],
-                    box[2],
-                    box[3],
-                    attribute["label"],
-                    f"{attribute['score']:.0%}",
-                    thickness=thickness,
-                    color=color,
-                )
+            # for attribute in self.thumbnail_data["attributes"]:
+            #     box = attribute["box"]
+            #     draw_box_with_label(
+            #         best_frame,
+            #         box[0],
+            #         box[1],
+            #         box[2],
+            #         box[3],
+            #         attribute["label"],
+            #         f"{attribute['score']:.0%}",
+            #         thickness=thickness,
+            #         color=color,
+            #     )
 
         if crop:
             box = self.thumbnail_data["box"]
@@ -837,7 +837,8 @@ class TrackedObjectProcessor(threading.Thread):
                 jpg_bytes = obj.get_jpg_bytes(
                     timestamp=snapshot_config.timestamp,
                     bounding_box=snapshot_config.bounding_box,
-                    crop=snapshot_config.crop,
+                    crop=obj.obj_data["label"] == DEFAULT_LICENSE_PLATE_LABEL
+                    or snapshot_config.crop,
                     height=snapshot_config.height,
                     quality=snapshot_config.quality,
                 )
