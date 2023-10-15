@@ -1,7 +1,7 @@
 version: "3"
 services:
-  devcontainer-trt:
-    container_name: frigate-devcontainer-trt
+  devcontainer:
+    container_name: frigate-devcontainer
     # add groups from host for render, plugdev, video
     group_add:
       - "109" # render
@@ -9,7 +9,10 @@ services:
       - "44"  # video
       - "46"  # plugdev
     shm_size: "256mb"
-    image: devcontainer-trt
+    build:
+      context: .
+      dockerfile: docker/main/Dockerfile
+      target: devcontainer
     deploy:
           resources:
               reservations:
@@ -29,7 +32,6 @@ services:
       - ./config:/config
       - ./debug:/media/frigate
       - /dev/bus/usb:/dev/bus/usb
-      - ./trt-models:/trt-models
     ports:
       - "8555:8555"
       - "8554:8554"
