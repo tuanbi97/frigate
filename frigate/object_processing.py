@@ -534,19 +534,19 @@ class CameraState:
                 )
 
                 # draw any attributes
-                for attribute in obj["current_attributes"]:
-                    box = attribute["box"]
-                    draw_box_with_label(
-                        frame_copy,
-                        box[0],
-                        box[1],
-                        box[2],
-                        box[3],
-                        attribute["label"],
-                        f"{attribute['score']:.0%}",
-                        thickness=thickness,
-                        color=color,
-                    )
+                # for attribute in obj["current_attributes"]:
+                #     box = attribute["box"]
+                #     draw_box_with_label(
+                #         frame_copy,
+                #         box[0],
+                #         box[1],
+                #         box[2],
+                #         box[3],
+                #         attribute["label"],
+                #         f"{attribute['score']:.0%}",
+                #         thickness=thickness,
+                #         color=color,
+                #     )
 
         if draw_options.get("regions"):
             for region in regions:
