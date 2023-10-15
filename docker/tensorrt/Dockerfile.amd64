@@ -30,7 +30,7 @@ COPY docker/tensorrt/detector/rootfs/ /
 COPY --from=trt-deps /usr/local/lib/libyolo_layer.so /usr/local/lib/libyolo_layer.so
 RUN --mount=type=bind,from=trt-wheels,source=/trt-wheels,target=/deps/trt-wheels \
     pip3 install -U /deps/trt-wheels/*.whl
-RUN pip3 install tensorflow-gpu==1.3.0
+RUN pip3 install tensorflow-gpu==2.11.0
 RUN pip3 install torch torchvision
 RUN pip3 install -r /workspace/frigate/plate_detectors/alpr/requirements.txt
 RUN ln -s /usr/local/lib/python3.9/dist-packages/tensorrt/libnvinfer_plugin.so.8 /usr/local/lib/python3.9/dist-packages/tensorrt/libnvinfer_plugin.so.7
