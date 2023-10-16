@@ -25,14 +25,5 @@ COPY --from=trt-deps /usr/local/src/tensorrt_demos /usr/local/src/tensorrt_demos
 COPY docker/tensorrt/detector/rootfs/ /
 ENV YOLO_MODELS="yolov7-320"
 
-RUN pip3 install tensorflow-gpu==2.11.0
-RUN pip3 install torch torchvision
-RUN ln -s /usr/local/lib/python3.9/dist-packages/tensorrt/libnvinfer_plugin.so.8 /usr/local/lib/python3.9/dist-packages/tensorrt/libnvinfer_plugin.so.7
-RUN ln -s /usr/local/lib/python3.9/dist-packages/tensorrt/libnvinfer.so.8 /usr/local/lib/python3.9/dist-packages/tensorrt/libnvinfer.so.7
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/python3.9/dist-packages/tensorrt
-RUN ln -s /usr/local/lib/python3.9/dist-packages/nvidia/cufft/lib/libcufft.so.11 /usr/local/lib/python3.9/dist-packages/nvidia/cufft/lib/libcufft.so.10
-RUN ln -s /usr/local/lib/python3.9/dist-packages/nvidia/cusparse/lib/libcusparse.so.12 /usr/local/lib/python3.9/dist-packages/nvidia/cusparse/lib/libcusparse.so.11
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/python3.9/dist-packages/nvidia/cufft/lib:/usr/local/lib/python3.9/dist-packages/nvidia/cusparse/lib:/usr/local/lib/python3.9/dist-packages/nvidia/curand/lib:/usr/local/lib/python3.9/dist-packages/nvidia/cusolver/lib
-
 HEALTHCHECK --start-period=600s --start-interval=5s --interval=15s --timeout=5s --retries=3 \
     CMD curl --fail --silent --show-error http://127.0.0.1:5000/api/version || exit 1
