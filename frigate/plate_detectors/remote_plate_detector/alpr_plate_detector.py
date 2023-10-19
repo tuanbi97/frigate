@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import tensorflow as tf
 import torch
@@ -29,12 +30,16 @@ class AlprPlateDetector(RemotePlateDetector):
         loc = torch.from_numpy(loc_array).to(detector.device)
         conf = torch.from_numpy(conf_array).to(detector.device)
         landms_array = torch.from_numpy(landms_array).to(detector.device)
-        detection_result = detector.post_process(loc, conf, landms_array)
+        try:
+            detection_result = detector.post_process(loc, conf, landms_array)
+        except Exception as e:
+            logging.warn("Loc dimension does not match priors data")
+            return []
         return detection_result
 
     def recognize_plate(self, image):
         recognizer = Plate_Recognizer(use_remote_model=True)
-        ocr_image_processed = np.float32(recognizer.get_input(image))
+        ocr_image_processed = recognizer.get_input(image)
         request = predict_pb2.PredictRequest()
         request.model_spec.name = "plate_recognition"
         request.model_spec.signature_name = "classification"

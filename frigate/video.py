@@ -1129,9 +1129,9 @@ def recognize_plates(
     # start = time.time()
     # logging.info(len(detected_vehicles))
     for vehicle in detected_vehicles:
-        # start = time.time()
+        start = time.time()
         bbox = vehicle[2]
-        image = frame[bbox[1] : bbox[3], bbox[0] : bbox[2]]
+        image = np.float32(frame[bbox[1] : bbox[3], bbox[0] : bbox[2]])
         detection_result = detector.detect_plate(image)
         for i, b in enumerate(detection_result):
             _, plate = img_transform(image, detection_result[i][5:])
@@ -1154,6 +1154,6 @@ def recognize_plates(
             # logging.info(license_plate)
             # logging.info(plate_name)
             results.append((plate_number, license_plate))
-        # logging.info(time.time() - start)
+        logging.info(time.time() - start)
     # logging.info(time.time() - start)
     return results
