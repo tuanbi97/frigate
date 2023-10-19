@@ -37,7 +37,8 @@ class Plate_Detector:
         priors = priorbox.forward()
         if self.config["gpu_inference"]:
             priors = priors.to(self.device)
-            self.model = self.model.to(self.device)
+            if self.model is not None:
+                self.model = self.model.to(self.device)
         self.prior_data = priors.data
         self.scale = torch.Tensor(
             [
@@ -92,7 +93,8 @@ class Plate_Detector:
                     "cuda" if torch.cuda.is_available() else "cpu"
                 )
                 priors = priors.to(self.device)
-                self.model = self.model.to(self.device)
+                if self.model:
+                    self.model = self.model.to(self.device)
             self.prior_data = priors.data
 
         if debug:

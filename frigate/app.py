@@ -10,6 +10,7 @@ from multiprocessing import Queue
 from multiprocessing.synchronize import Event as MpEvent
 from types import FrameType
 from typing import Optional
+import grpc
 
 import psutil
 from peewee_migrate import Router
@@ -69,6 +70,7 @@ class FrigateApp:
         self.feature_metrics: dict[str, FeatureMetricsTypes] = {}
         self.ptz_metrics: dict[str, PTZMetricsTypes] = {}
         self.processes: dict[str, int] = {}
+        self.serving_grpc_channel = grpc.insecure_channel("localhost:8500")
 
     def set_environment_vars(self) -> None:
         for key, value in self.config.environment_vars.items():
@@ -469,6 +471,7 @@ class FrigateApp:
                     self.detected_frames_queue,
                     self.camera_metrics[name],
                     self.ptz_metrics[name],
+                    self.serving_grpc_channel
                 ),
             )
             camera_process.daemon = True
@@ -681,3 +684,5 @@ class FrigateApp:
                     queue.get_nowait()
                 queue.close()
                 queue.join_thread()
+
+        self.serving_grpc_channel.close()
