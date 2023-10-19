@@ -27,9 +27,9 @@ class AlprPlateDetector(RemotePlateDetector):
         loc_array = tf.make_ndarray(response.outputs['loc'])
         conf_array = tf.make_ndarray(response.outputs['conf'])
         landms_array = tf.make_ndarray(response.outputs['landms'])
-        loc = torch.from_numpy(loc_array).to(detector.device)
-        conf = torch.from_numpy(conf_array).to(detector.device)
-        landms_array = torch.from_numpy(landms_array).to(detector.device)
+        loc = torch.from_numpy(loc_array)
+        conf = torch.from_numpy(conf_array)
+        landms_array = torch.from_numpy(landms_array)
         try:
             detection_result = detector.post_process(loc, conf, landms_array)
         except Exception as e:
