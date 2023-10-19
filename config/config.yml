@@ -1,5 +1,5 @@
 mqtt:
-  host: mqtt
+  enabled: false
 
 objects:
   track:
@@ -8,24 +8,62 @@ objects:
     - motorcycle
     - plate
 
+# cameras:
+#   test:
+#     ffmpeg:
+#       inputs:
+#         - path: /media/frigate/camera-test.mp4
+#           input_args: -re -stream_loop -1 -fflags +genpts
+#           roles:
+#             - detect
+#             - rtmp
+#     detect:
+#       height: 1080
+#       width: 1920
+#       fps: 5
+#   camera1:
+#     ffmpeg:
+#       hwaccel_args: preset-nvidia-h264
+#       inputs:
+#         - path: rtsp://admin:0938447416hd@222.253.40.180:1024/Streaming/Unicast/channels/3101
+#           roles:
+#             - detect
+#             - rtmp
+#   camera2:
+#     ffmpeg:
+#       hwaccel_args: preset-nvidia-h264
+#       inputs:
+#         - path: rtsp://admin:0938447416hd@222.253.40.180:1024/Streaming/Unicast/channels/101
+#           roles:
+#             - detect
+#             - rtmp
+#   # camera1: # <------ Name the camera
+#   #   ffmpeg:
+#   #     hwaccel_args: preset-nvidia-h264
+#   #     inputs:
+#   #       - path: rtsp://admin:HQ-0907979696@anphukp5c.vncctv.com:1024/Streaming/Unicast/channels/101
+#   #         roles:
+#   #           - detect
+#   #           - rtmp
+#   # camera2:
+#   #   ffmpeg:
+#   #     hwaccel_args: preset-nvidia-h264
+#   #     inputs:
+#   #       - path: rtsp://admin:HQ-0907979696@anphukp5c.vncctv.com:1024/Streaming/Unicast/channels/201
+#   #         roles:
+#   #           - detect
+#   #           - rtmp
+#   #   detect:
+#   #     height: 1080
+#   #     width: 1920
+#   #     fps: 5
+
 cameras:
-  test:
-    ffmpeg:
-      inputs:
-        - path: /media/frigate/camera-test.mp4
-          input_args: -re -stream_loop -1 -fflags +genpts
-          roles:
-            - detect
-            - rtmp
-    detect:
-      height: 1080
-      width: 1920
-      fps: 5
-  camera1:
+  camera1: # <------ Name the camera
     ffmpeg:
       hwaccel_args: preset-nvidia-h264
       inputs:
-        - path: rtsp://admin:0938447416hd@222.253.40.180:1024/Streaming/Unicast/channels/3101
+        - path: rtsp://admin:HQ-0907979696@anphukp5c.vncctv.com:1024/Streaming/Unicast/channels/101
           roles:
             - detect
             - rtmp
@@ -33,30 +71,163 @@ cameras:
     ffmpeg:
       hwaccel_args: preset-nvidia-h264
       inputs:
-        - path: rtsp://admin:0938447416hd@222.253.40.180:1024/Streaming/Unicast/channels/101
+        - path: rtsp://admin:HQ-0907979696@anphukp5c.vncctv.com:1024/Streaming/Unicast/channels/201
           roles:
             - detect
             - rtmp
-  # camera1: # <------ Name the camera
+  camera3:
+    ffmpeg:
+      hwaccel_args: preset-nvidia-h264
+      inputs:
+        - path: rtsp://admin:HQ-0907979696@anphukp5c.vncctv.com:1024/Streaming/Unicast/channels/401
+          roles:
+            - detect
+            - rtmp
+  # camera4:
   #   ffmpeg:
   #     hwaccel_args: preset-nvidia-h264
   #     inputs:
-  #       - path: rtsp://admin:HQ-0907979696@anphukp5c.vncctv.com:1024/Streaming/Unicast/channels/101
+  #       - path: rtsp://admin:HQ-0907979696@anphukp5c.vncctv.com:1024/Streaming/Unicast/channels/501
   #         roles:
   #           - detect
   #           - rtmp
-  # camera2:
+  # camera5:
   #   ffmpeg:
   #     hwaccel_args: preset-nvidia-h264
   #     inputs:
-  #       - path: rtsp://admin:HQ-0907979696@anphukp5c.vncctv.com:1024/Streaming/Unicast/channels/201
+  #       - path: rtsp://admin:HQ-0907979696@anphukp5.vncctv.com:1026/Streaming/Unicast/channels/1201
   #         roles:
   #           - detect
   #           - rtmp
-  #   detect:
-  #     height: 1080
-  #     width: 1920
-  #     fps: 5
+  # camera6:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://admin:HQ-0907979696@anphukp5.vncctv.com:1026/Streaming/Unicast/channels/301
+  #         roles:
+  #           - detect
+  #           - rtmp
+  # camera7:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://admin:HQ-0907979696@anphukp5.vncctv.com:1026/Streaming/Unicast/channels/501
+  #         roles:
+  #           - detect
+  #           - rtmp
+  # camera8:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://admin:HQ-0907979696@anphukp5.vncctv.com:1030/Streaming/Unicast/channels/1001
+  #         roles:
+  #           - detect
+  #           - rtmp
+  # camera9:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/2401
+  #         roles:
+  #           - detect
+  #           - rtmp
+  # camera10:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/201
+  #         roles:
+  #           - detect
+  #           - rtmp
+
+  # camera11:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/301
+  #         roles:
+  #           - detect
+  #           - rtmp
+
+  # camera12:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/2201
+  #         roles:
+  #           - detect
+  #           - rtmp
+
+  # camera13:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/2001
+  #         roles:
+  #           - detect
+  #           - rtmp
+
+  # camera14:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/1001
+  #         roles:
+  #           - detect
+  #           - rtmp
+
+  # camera15:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/601
+  #         roles:
+  #           - detect
+  #           - rtmp
+
+  # camera16:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/1301
+  #         roles:
+  #           - detect
+  #           - rtmp
+
+  # camera17:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/1201
+  #         roles:
+  #           - detect
+  #           - rtmp
+
+  # camera18:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/1601
+  #         roles:
+  #           - detect
+  #           - rtmp
+
+  # camera19:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/2401
+  #         roles:
+  #           - detect
+  #           - rtmp
+  # camera20:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/901
+  #         roles:
+  #           - detect
+  #           - rtmp
 
 detectors:
   tensorrt:
@@ -69,3 +240,18 @@ model:
   input_pixel_format: rgb
   width: 416
   height: 416
+
+snapshots: # Optional: Enable writing jpg snapshot to /media/frigate/clips (default: shown below)
+  enabled: True
+  # Optional: save a clean PNG copy of the snapshot image (default: shown below)
+  clean_copy: True
+  # Optional: print a timestamp on the snapshots (default: shown below)
+  timestamp: True
+  # Optional: draw bounding box on the snapshots (default: shown below)
+  bounding_box: True
+  # Optional: crop the snapshot (default: shown below)
+  crop: True
+  # Optional: height to resize the snapshot to (default: original size)
+  height: 175
+  # Optional: Restrict snapshots to objects that entered any of the listed zones (default: no required zones)
+  required_zones: []
