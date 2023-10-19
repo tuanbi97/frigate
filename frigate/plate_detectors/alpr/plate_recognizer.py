@@ -7,12 +7,15 @@ from .LPRnet.LPRnet import *
 
 
 class Plate_Recognizer:
-    def __init__(self):
+    def __init__(self, use_remote_model = False):
         """ """
-        self.model, self.session = self.load_model(
-            os.path.dirname(os.path.abspath(__file__))
-            + "/LPRnet/weight/weight_tensorflow/LPRnet_steps515000_loss_1.729.ckpt"
-        )
+        self.model = None
+        self.session = None
+        if not use_remote_model:
+            self.model, self.session = self.load_model(
+                os.path.dirname(os.path.abspath(__file__))
+                + "/LPRnet/weight/weight_tensorflow/LPRnet_steps515000_loss_1.729.ckpt"
+            )
         self.input_size = (94, 24)
 
     def get_input(self, img, flip=False):
