@@ -216,22 +216,7 @@ cameras:
 #           roles:
 #             - detect
 #             - rtmp
-# camera1: # <------ Name the camera
-#   ffmpeg:
-#     hwaccel_args: preset-nvidia-h264
-#     inputs:
-#       - path: rtsp://admin:HQ-0907979696@anphukp5c.vncctv.com:1024/Streaming/Unicast/channels/101
-#         roles:
-#           - detect
-#           - rtmp
-# camera2:
-#   ffmpeg:
-#     hwaccel_args: preset-nvidia-h264
-#     inputs:
-#       - path: rtsp://admin:HQ-0907979696@anphukp5c.vncctv.com:1024/Streaming/Unicast/channels/201
-#         roles:
-#           - detect
-#           - rtmp
+
 detect:
   height: 1080
   width: 1920
