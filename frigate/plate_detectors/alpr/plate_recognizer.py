@@ -52,8 +52,8 @@ class Plate_Recognizer:
         # import os
 
         # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-        config = tf.ConfigProto(log_device_placement=True)
-        config.gpu_options.per_process_gpu_memory_fraction = 0.03
+        config = tf.ConfigProto(log_device_placement=False)
+        config.gpu_options.per_process_gpu_memory_fraction = 0.02
         config.gpu_options.allow_growth = True
         sess = tf.Session(config=config)
         init = tf.global_variables_initializer()
