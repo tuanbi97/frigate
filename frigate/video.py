@@ -28,8 +28,12 @@ from frigate.motion import MotionDetector
 from frigate.motion.improved_motion import ImprovedMotionDetector
 from frigate.object_detection import RemoteObjectDetector
 from frigate.plate_detectors.alpr.retina_plate.utils.utils import img_transform
-from frigate.plate_detectors.remote_plate_detector.alpr_plate_detector import AlprPlateDetector
-from frigate.plate_detectors.remote_plate_detector.remote_plate_detector import RemotePlateDetector
+from frigate.plate_detectors.remote_plate_detector.alpr_plate_detector import (
+    AlprPlateDetector,
+)
+from frigate.plate_detectors.remote_plate_detector.remote_plate_detector import (
+    RemotePlateDetector,
+)
 from frigate.ptz.autotrack import ptz_moving_at_frame_time
 from frigate.track import ObjectTracker
 from frigate.track.norfair_tracker import NorfairTracker
@@ -1136,6 +1140,7 @@ def recognize_plates(
         for i, b in enumerate(detection_result):
             _, plate = img_transform(image, detection_result[i][5:])
             plate_number = detector.recognize_plate(plate)
+            plate_number = 'unknown' if plate_number is None else None
             plate_box = (
                 int(bbox[0] + b[0]),
                 int(bbox[1] + b[1]),

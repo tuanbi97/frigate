@@ -7,7 +7,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow_serving.apis import predict_pb2, prediction_service_pb2_grpc
 
-
 # def detect(channel):
 #     # with tf.device('/gpu:0'):
 #     start = time.time()
@@ -22,6 +21,7 @@ from tensorflow_serving.apis import predict_pb2, prediction_service_pb2_grpc
 #     request.inputs["inputs"].CopyFrom(tf.make_tensor_proto(img[0], shape=img.shape))
 #     stub.Predict(request)
 #     print(time.time() - start)
+
 
 def detect(channel):
     # with tf.device('/gpu:0'):
@@ -53,17 +53,18 @@ def detect(channel):
     print(img.shape)
     request.inputs["input"].CopyFrom(tf.make_tensor_proto(img[0], shape=img.shape))
     out = stub.Predict(request)
-    print(len(out.outputs['loc'].float_val))
-    print(out.outputs['loc'].tensor_shape)
-    output1 = tf.make_ndarray(out.outputs['loc'])
-    print(output1)
-    print(len(out.outputs['conf'].float_val))
-    print(out.outputs['conf'].tensor_shape)
-    print(len(out.outputs['landms'].float_val))
-    print(out.outputs['landms'].tensor_shape)
+    print(len(out.outputs["loc"].float_val))
+    print(out.outputs["loc"].tensor_shape)
+    tf.make_ndarray(out.outputs["loc"])
+    # print(output1)
+    print(len(out.outputs["conf"].float_val))
+    print(out.outputs["conf"].tensor_shape)
+    print(len(out.outputs["landms"].float_val))
+    print(out.outputs["landms"].tensor_shape)
     # print(out.outputs['575'])
     # print(out.outputs['output'])
     print(time.time() - start)
+
 
 hostport = "localhost:8500"
 channel = grpc.insecure_channel(hostport)
