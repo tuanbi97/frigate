@@ -19,6 +19,14 @@ objects:
 #             - rtmp
 
 cameras:
+  test:
+    ffmpeg:
+      inputs:
+        - path: /media/frigate/camera-test.mp4
+          input_args: -re -stream_loop -1 -fflags +genpts
+          roles:
+            - detect
+            - rtmp
   camera1: # <------ Name the camera
     ffmpeg:
       hwaccel_args: preset-nvidia-h264
