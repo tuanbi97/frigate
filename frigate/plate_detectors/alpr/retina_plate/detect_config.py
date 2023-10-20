@@ -42,7 +42,7 @@ cfg_plate = {
         454,
         256,
     ),  # (350, 200),  # width, height  //(1980, 1020),  # width, height
-    "max_size": 320,
+    "max_size": 160,
     "image_ratio": [16, 9],
     "pretrain": False,
     "return_layers": {"stage1": 1, "stage2": 2, "stage3": 3},

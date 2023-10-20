@@ -29,7 +29,11 @@ class AlprPlateDetector(RemotePlateDetector):
         request.inputs["input"].CopyFrom(
             tf.make_tensor_proto(image_processed[0], shape=image_processed.shape)
         )
-        response = self.prediction_service_stub.Predict(request)
+        try:
+            response = self.prediction_service_stub.Predict(request)
+        except Exception as e:
+            logging.warn(e)
+            return []
         loc_array = tf.make_ndarray(response.outputs["loc"])
         conf_array = tf.make_ndarray(response.outputs["conf"])
         landms_array = tf.make_ndarray(response.outputs["landms"])
@@ -61,12 +65,15 @@ class AlprPlateDetector(RemotePlateDetector):
                 ocr_image_processed[0], shape=ocr_image_processed.shape
             )
         )
-        response = self.prediction_service_stub.Predict(request)
+        try:
+            response = self.prediction_service_stub.Predict(request)
+        except Exception:
+            return None
         ocr_model_out = tf.make_ndarray(response.outputs["outputs"])
         ocr_result = recognizer.post_process(ocr_model_out)
         plate_number = ocr_result[0]
         check_result = self.checker.run(plate_number)
         if not check_result or not check_result[1]:
-            return ""
+            return None
 
         return plate_number

@@ -8,21 +8,6 @@ objects:
     - motorcycle
     - plate
 
-snapshots: # Optional: Enable writing jpg snapshot to /media/frigate/clips (default: shown below)
-  enabled: True
-  # Optional: save a clean PNG copy of the snapshot image (default: shown below)
-  clean_copy: True
-  # Optional: print a timestamp on the snapshots (default: shown below)
-  timestamp: True
-  # Optional: draw bounding box on the snapshots (default: shown below)
-  bounding_box: True
-  # Optional: crop the snapshot (default: shown below)
-  crop: True
-  # Optional: height to resize the snapshot to (default: original size)
-  height: 175
-  # Optional: Restrict snapshots to objects that entered any of the listed zones (default: no required zones)
-  required_zones: []
-
 # cameras:
 #   test:
 #     ffmpeg:
@@ -32,8 +17,23 @@ snapshots: # Optional: Enable writing jpg snapshot to /media/frigate/clips (defa
 #           roles:
 #             - detect
 #             - rtmp
-
+#     detect:
+#       height: 1080
+#       width: 1920
+#       fps: 5
+detect:
+  height: 1080
+  width: 1920
+  fps: 1
 cameras:
+  # test:
+  #   ffmpeg:
+  #     inputs:
+  #       - path: /media/frigate/camera-test.mp4
+  #         input_args: -re -stream_loop -1 -fflags +genpts
+  #         roles:
+  #           - detect
+  #           - rtmp
   camera1: # <------ Name the camera
     ffmpeg:
       hwaccel_args: preset-nvidia-h264
@@ -204,11 +204,6 @@ cameras:
             - detect
             # - rtmp
 
-detect:
-  height: 1080
-  width: 1920
-  fps: 5
-
 detectors:
   tensorrt:
     type: tensorrt
@@ -220,3 +215,18 @@ model:
   input_pixel_format: rgb
   width: 416
   height: 416
+
+snapshots: # Optional: Enable writing jpg snapshot to /media/frigate/clips (default: shown below)
+  enabled: True
+  # Optional: save a clean PNG copy of the snapshot image (default: shown below)
+  clean_copy: True
+  # Optional: print a timestamp on the snapshots (default: shown below)
+  timestamp: True
+  # Optional: draw bounding box on the snapshots (default: shown below)
+  bounding_box: True
+  # Optional: crop the snapshot (default: shown below)
+  crop: True
+  # Optional: height to resize the snapshot to (default: original size)
+  height: 175
+  # Optional: Restrict snapshots to objects that entered any of the listed zones (default: no required zones)
+  required_zones: []

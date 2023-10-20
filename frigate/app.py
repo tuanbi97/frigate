@@ -10,8 +10,8 @@ from multiprocessing import Queue
 from multiprocessing.synchronize import Event as MpEvent
 from types import FrameType
 from typing import Optional
-import grpc
 
+import grpc
 import psutil
 from peewee_migrate import Router
 from playhouse.sqlite_ext import SqliteExtDatabase
@@ -28,7 +28,9 @@ from frigate.const import (
     CONFIG_DIR,
     DEFAULT_DB_PATH,
     EXPORT_DIR,
+    MAX_MESSAGE_LENGTH,
     MODEL_CACHE_DIR,
+    MODEL_SERVING_HOST,
     RECORD_DIR,
 )
 from frigate.events.audio import listen_to_audio
@@ -70,7 +72,10 @@ class FrigateApp:
         self.feature_metrics: dict[str, FeatureMetricsTypes] = {}
         self.ptz_metrics: dict[str, PTZMetricsTypes] = {}
         self.processes: dict[str, int] = {}
-        self.serving_grpc_channel = grpc.insecure_channel("localhost:8500")
+        self.serving_grpc_channel = grpc.insecure_channel(MODEL_SERVING_HOST, options=[
+            ('grpc.max_send_message_length', MAX_MESSAGE_LENGTH),
+            ('grpc.max_receive_message_length', MAX_MESSAGE_LENGTH),
+        ])
 
     def set_environment_vars(self) -> None:
         for key, value in self.config.environment_vars.items():
