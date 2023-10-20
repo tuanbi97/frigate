@@ -100,50 +100,50 @@ cameras:
             - detect
             - rtmp
 
-  camera11:
-    ffmpeg:
-      hwaccel_args: preset-nvidia-h264
-      inputs:
-        - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/301
-          roles:
-            - detect
-            - rtmp
+  # camera11:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/301
+  #         roles:
+  #           - detect
+  #           - rtmp
 
-  camera12:
-    ffmpeg:
-      hwaccel_args: preset-nvidia-h264
-      inputs:
-        - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/2201
-          roles:
-            - detect
-            - rtmp
+  # camera12:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/2201
+  #         roles:
+  #           - detect
+  #           - rtmp
 
-  camera13:
-    ffmpeg:
-      hwaccel_args: preset-nvidia-h264
-      inputs:
-        - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/2001
-          roles:
-            - detect
-            - rtmp
+  # camera13:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/2001
+  #         roles:
+  #           - detect
+  #           - rtmp
 
-  camera14:
-    ffmpeg:
-      hwaccel_args: preset-nvidia-h264
-      inputs:
-        - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/1001
-          roles:
-            - detect
-            - rtmp
+  # camera14:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/1001
+  #         roles:
+  #           - detect
+  #           - rtmp
 
-  camera15:
-    ffmpeg:
-      hwaccel_args: preset-nvidia-h264
-      inputs:
-        - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/601
-          roles:
-            - detect
-            - rtmp
+  # camera15:
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/601
+  #         roles:
+  #           - detect
+  #           - rtmp
 
 detect:
   height: 1080
