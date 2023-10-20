@@ -7,6 +7,14 @@ import numpy as np
 import tensorflow as tf
 from tensorflow_serving.apis import predict_pb2, prediction_service_pb2_grpc
 
+from frigate.plate_detectors.alpr.retina_plate.utils.utils import img_transform
+from frigate.plate_detectors.remote_plate_detector.alpr_plate_detector import (
+    AlprPlateDetector,
+)
+from frigate.plate_detectors.remote_plate_detector.remote_plate_detector import (
+    RemotePlateDetector,
+)
+
 # def detect(channel):
 #     # with tf.device('/gpu:0'):
 #     start = time.time()
@@ -21,6 +29,20 @@ from tensorflow_serving.apis import predict_pb2, prediction_service_pb2_grpc
 #     request.inputs["inputs"].CopyFrom(tf.make_tensor_proto(img[0], shape=img.shape))
 #     stub.Predict(request)
 #     print(time.time() - start)
+
+
+def detect2(detector):
+    start = time.time()
+    image = np.float32(
+        cv2.imread("/workspace/frigate/frigate/plate_detectors/alpr/test.jpg")
+    )
+    detection_result = detector.detect_plate(image)
+    print(time.time() - start)
+    # logging.info(np.shape(detection_result))
+    for i, b in enumerate(detection_result):
+        _, plate = img_transform(image, detection_result[i][5:])
+        plate_number = detector.recognize_plate(plate)
+        print(plate_number)
 
 
 def detect(channel):
@@ -61,17 +83,21 @@ def detect(channel):
     print(out.outputs["conf"].tensor_shape)
     print(len(out.outputs["landms"].float_val))
     print(out.outputs["landms"].tensor_shape)
-    # print(out.outputs['575'])
-    # print(out.outputs['output'])
     print(time.time() - start)
 
 
 hostport = "localhost:8500"
 channel = grpc.insecure_channel(hostport)
-for i in range(0, 1):
-    p = Process(target=detect, args=(channel,))
+detector: RemotePlateDetector = AlprPlateDetector(channel)
+# for i in range(0, 1):
+#     p = Process(target=detect, args=(detect,))
+#     p.start()
+#     p.join()
+
+for i in range(0, 10):
+    p = Process(target=detect2, args=(detector,))
     p.start()
-    p.join()
+    # p.join()
 
 # for i in range(0, 10000):
 #     p = Process(target=detect, args=(channel,))

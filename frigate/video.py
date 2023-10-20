@@ -471,7 +471,7 @@ def track_camera(
     detected_objects_queue,
     process_info,
     ptz_metrics,
-    serving_grpc_channel
+    serving_grpc_channel,
 ):
     stop_event = mp.Event()
 
@@ -961,9 +961,7 @@ def process_frames(
                     if d[0] in vehicle_objects_to_track
                 ]
                 license_results = recognize_plates(
-                    rgb_frame,
-                    detected_vehicles,
-                    remote_plate_detector
+                    rgb_frame, detected_vehicles, remote_plate_detector
                 )
                 consolidated_detections.extend(
                     [result[1] for result in license_results]
@@ -1124,11 +1122,7 @@ def process_frames(
             frame_manager.close(f"{camera_name}{frame_time}")
 
 
-def recognize_plates(
-    frame,
-    detected_vehicles,
-    detector: RemotePlateDetector
-):
+def recognize_plates(frame, detected_vehicles, detector: RemotePlateDetector):
     results = []
     # start = time.time()
     # logging.info(len(detected_vehicles))
@@ -1137,10 +1131,12 @@ def recognize_plates(
         bbox = vehicle[2]
         image = np.float32(frame[bbox[1] : bbox[3], bbox[0] : bbox[2]])
         detection_result = detector.detect_plate(image)
+        # logging.info(np.shape(detection_result))
         for i, b in enumerate(detection_result):
             _, plate = img_transform(image, detection_result[i][5:])
             plate_number = detector.recognize_plate(plate)
-            plate_number = 'unknown' if plate_number is None else None
+            # logging.info(plate_number)
+            plate_number = "unknown" if plate_number is None else plate_number
             plate_box = (
                 int(bbox[0] + b[0]),
                 int(bbox[1] + b[1]),
