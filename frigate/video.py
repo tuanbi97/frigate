@@ -1014,6 +1014,7 @@ def process_frames(
                                 "text": license_result[0],
                             }
                         )
+                        break
 
             detections[obj["id"]] = {**obj, "attributes": attributes}
 
@@ -1027,20 +1028,23 @@ def process_frames(
             cv2.imwrite(
                 f"debug/frames/track-{'{:.6f}'.format(frame_time)}.jpg", bgr_frame
             )
-        # debug
-        if False:
-            bgr_frame = cv2.cvtColor(
-                frame,
-                cv2.COLOR_YUV2BGR_I420,
-            )
-            logging.info(np.shape(bgr_frame))
+        # debug plate
+        if True:
+            debug_dir = f"debug/plate_test/{camera_name}"
+            if not os.path.exists(debug_dir):
+                os.makedirs(debug_dir)
             for idx, obj in enumerate(object_tracker.tracked_objects.values()):
-                b = obj["box"]
-                crop_image = bgr_frame[b[1] : b[3], b[0] : b[2]]
-                cv2.imwrite(
-                    f"debug/plate_test/{camera_name}-{'{:.6f}'.format(frame_time)}-{idx}.jpg",
-                    crop_image,
-                )
+                if obj["frame_time"] == frame_time:
+                    b = obj["box"]
+                    crop_image = rgb_frame[b[1] : b[3], b[0] : b[2]]
+                    label = obj["label"]
+                    cv2.imwrite(
+                        os.path.join(
+                            debug_dir,
+                            f"{camera_name}-{frame_time}-{label}-{obj['id']}" + ".jpg",
+                        ),
+                        crop_image,
+                    )
 
         if False:
             bgr_frame = cv2.cvtColor(
@@ -1127,21 +1131,42 @@ def recognize_plates(frame, detected_vehicles, detector: RemotePlateDetector):
     # start = time.time()
     # logging.info(len(detected_vehicles))
     for vehicle in detected_vehicles:
-        # start = time.time()
+        start = time.time()
         bbox = vehicle[2]
         image = np.float32(frame[bbox[1] : bbox[3], bbox[0] : bbox[2]])
-        detection_result = detector.detect_plate(image)
-        # logging.info(np.shape(detection_result))
+        # convert image to squares
+        h, w, _ = image.shape
+        offsets = [(0, 0)]
+        min_size = min(h, w)
+        if h < w:
+            offsets.append((0, w - h))
+        elif h > w:
+            offsets.append((h - w, 0))
+
+        detection_result = []
+        offsets_result = []
+        for offset in offsets:
+            sqr_image = image[
+                offset[0] : offset[0] + min_size, offset[1] : offset[1] + min_size
+            ]
+            result = detector.detect_plate(sqr_image)
+            for j in range(0, len(result)):
+                b = result[j]
+                if b[0] > min_size or b[1] > min_size or b[2] < 0 or b[3] < 0:
+                    continue
+                detection_result.append(result[j])
+                offsets_result.append(offset)
+
         for i, b in enumerate(detection_result):
             _, plate = img_transform(image, detection_result[i][5:])
             plate_number = detector.recognize_plate(plate)
             # logging.info(plate_number)
             plate_number = "unknown" if plate_number is None else plate_number
             plate_box = (
-                int(bbox[0] + b[0]),
-                int(bbox[1] + b[1]),
-                int(bbox[0] + b[2]),
-                int(bbox[1] + b[3]),
+                int(bbox[0] + offsets_result[i][1] + b[0]),
+                int(bbox[1] + offsets_result[i][0] + b[1]),
+                int(bbox[0] + offsets_result[i][1] + b[2]),
+                int(bbox[1] + offsets_result[i][0] + b[3]),
             )
             license_plate = (
                 DEFAULT_LICENSE_PLATE_LABEL,
@@ -1155,6 +1180,6 @@ def recognize_plates(frame, detected_vehicles, detector: RemotePlateDetector):
             # logging.info(license_plate)
             # logging.info(plate_name)
             results.append((plate_number, license_plate))
-        # logging.info(time.time() - start)
+        logging.info(time.time() - start)
     # logging.info(time.time() - start)
     return results
