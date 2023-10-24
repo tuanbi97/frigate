@@ -1037,18 +1037,21 @@ def process_frames(
             debug_dir = f"debug/plate_test/{camera_name}"
             if not os.path.exists(debug_dir):
                 os.makedirs(debug_dir)
-            for idx, obj in enumerate(object_tracker.tracked_objects.values()):
-                if obj["frame_time"] == frame_time:
-                    b = obj["box"]
-                    crop_image = bgr_frame[b[1] : b[3], b[0] : b[2]]
-                    label = obj["label"]
-                    cv2.imwrite(
-                        os.path.join(
-                            debug_dir,
-                            f"{camera_name}-{frame_time}-{label}-{obj['id']}" + ".jpg",
-                        ),
-                        crop_image,
-                    )
+            try:
+                for idx, obj in enumerate(object_tracker.tracked_objects.values()):
+                    if obj["frame_time"] == frame_time:
+                        b = obj["box"]
+                        crop_image = bgr_frame[b[1] : b[3], b[0] : b[2]]
+                        label = obj["label"]
+                        cv2.imwrite(
+                            os.path.join(
+                                debug_dir,
+                                f"{camera_name}-{frame_time}-{label}-{obj['id']}" + ".jpg",
+                            ),
+                            crop_image,
+                        )
+            except Exception as e:
+                logging.info("Cannot write debug image")
 
         if False:
             bgr_frame = cv2.cvtColor(
