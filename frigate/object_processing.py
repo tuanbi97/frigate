@@ -87,12 +87,7 @@ def is_better_thumbnail(label, current_thumb, new_obj, frame_shape) -> bool:
     if label == DEFAULT_LICENSE_PLATE_LABEL:
         if has_better_attr(current_thumb, new_obj, "license_number"):
             return True
-        if any(
-            [
-                a["label"] == DEFAULT_LICENSE_PLATE_LABEL
-                for a in current_thumb["attributes"]
-            ]
-        ):
+        if any([a["label"] == "license_number" for a in current_thumb["attributes"]]):
             return False
 
     # if the new_thumb is on an edge, and the current thumb is not
