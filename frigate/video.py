@@ -1155,10 +1155,10 @@ def recognize_plates(frame, detected_vehicles, detector: RemotePlateDetector):
             # logging.info(plate_number)
             plate_number = "unknown" if plate_number is None else plate_number
             plate_box = (
-                int(bbox[0] + offsets_result[i][1] + b[0]),
-                int(bbox[1] + offsets_result[i][0] + b[1]),
-                int(bbox[0] + offsets_result[i][1] + b[2]),
-                int(bbox[1] + offsets_result[i][0] + b[3]),
+                int(bbox[0] + b[0]),
+                int(bbox[1] + b[1]),
+                int(bbox[0] + b[2]),
+                int(bbox[1] + b[3]),
             )
             license_plate = (
                 DEFAULT_LICENSE_PLATE_LABEL,
