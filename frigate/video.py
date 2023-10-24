@@ -1029,7 +1029,7 @@ def process_frames(
                 f"debug/frames/track-{'{:.6f}'.format(frame_time)}.jpg", bgr_frame
             )
         # debug plate
-        if True:
+        if False:
             debug_dir = f"debug/plate_test/{camera_name}"
             if not os.path.exists(debug_dir):
                 os.makedirs(debug_dir)
