@@ -89,7 +89,7 @@ def is_better_thumbnail(label, current_thumb, new_obj, frame_shape) -> bool:
             return True
         if any(
             [
-                a["label"] == DEFAULT_LICENSE_PLATE_LABEL
+                a["label"] == "license_number"
                 for a in current_thumb["attributes"]
             ]
         ):
