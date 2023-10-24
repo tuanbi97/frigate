@@ -1029,14 +1029,18 @@ def process_frames(
                 f"debug/frames/track-{'{:.6f}'.format(frame_time)}.jpg", bgr_frame
             )
         # debug plate
-        if False:
+        if True:
+            bgr_frame = cv2.cvtColor(
+                frame,
+                cv2.COLOR_YUV2BGR_I420,
+            )
             debug_dir = f"debug/plate_test/{camera_name}"
             if not os.path.exists(debug_dir):
                 os.makedirs(debug_dir)
             for idx, obj in enumerate(object_tracker.tracked_objects.values()):
                 if obj["frame_time"] == frame_time:
                     b = obj["box"]
-                    crop_image = rgb_frame[b[1] : b[3], b[0] : b[2]]
+                    crop_image = bgr_frame[b[1] : b[3], b[0] : b[2]]
                     label = obj["label"]
                     cv2.imwrite(
                         os.path.join(
