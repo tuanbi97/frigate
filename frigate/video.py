@@ -1029,7 +1029,7 @@ def process_frames(
                 f"debug/frames/track-{'{:.6f}'.format(frame_time)}.jpg", bgr_frame
             )
         # debug plate
-        if True:
+        if False:
             bgr_frame = cv2.cvtColor(
                 frame,
                 cv2.COLOR_YUV2BGR_I420,
@@ -1046,12 +1046,14 @@ def process_frames(
                         cv2.imwrite(
                             os.path.join(
                                 debug_dir,
-                                f"{camera_name}-{frame_time}-{label}-{obj['id']}" + ".jpg",
+                                f"{camera_name}-{frame_time}-{label}-{obj['id']}"
+                                + ".jpg",
                             ),
                             crop_image,
                         )
-            except Exception as e:
+            except Exception:
                 logging.info("Cannot write debug image")
+                logging.info(np.shape(crop_image))
 
         if False:
             bgr_frame = cv2.cvtColor(
