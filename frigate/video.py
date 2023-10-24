@@ -1037,18 +1037,21 @@ def process_frames(
             debug_dir = f"debug/plate_test/{camera_name}"
             if not os.path.exists(debug_dir):
                 os.makedirs(debug_dir)
-            for idx, obj in enumerate(object_tracker.tracked_objects.values()):
-                if obj["frame_time"] == frame_time:
-                    b = obj["box"]
-                    crop_image = bgr_frame[b[1] : b[3], b[0] : b[2]]
-                    label = obj["label"]
-                    cv2.imwrite(
-                        os.path.join(
-                            debug_dir,
-                            f"{camera_name}-{frame_time}-{label}-{obj['id']}" + ".jpg",
-                        ),
-                        crop_image,
-                    )
+            try:
+                for idx, obj in enumerate(object_tracker.tracked_objects.values()):
+                    if obj["frame_time"] == frame_time:
+                        b = obj["box"]
+                        crop_image = bgr_frame[b[1] : b[3], b[0] : b[2]]
+                        label = obj["label"]
+                        cv2.imwrite(
+                            os.path.join(
+                                debug_dir,
+                                f"{camera_name}-{frame_time}-{label}-{obj['id']}" + ".jpg",
+                            ),
+                            crop_image,
+                        )
+            except Exception as e:
+                logging.info("Cannot write debug image")
 
         if False:
             bgr_frame = cv2.cvtColor(
@@ -1140,26 +1143,14 @@ def recognize_plates(frame, detected_vehicles, detector: RemotePlateDetector):
         image = np.float32(frame[bbox[1] : bbox[3], bbox[0] : bbox[2]])
         # convert image to squares
         h, w, _ = image.shape
-        offsets = [(0, 0)]
-        min_size = min(h, w)
-        if h < w:
-            offsets.append((0, w - h))
-        elif h > w:
-            offsets.append((h - w, 0))
-
-        detection_result = []
-        offsets_result = []
-        for offset in offsets:
-            sqr_image = image[
-                offset[0] : offset[0] + min_size, offset[1] : offset[1] + min_size
-            ]
-            result = detector.detect_plate(sqr_image)
-            for j in range(0, len(result)):
-                b = result[j]
-                if b[0] > min_size or b[1] > min_size or b[2] < 0 or b[3] < 0:
-                    continue
-                detection_result.append(result[j])
-                offsets_result.append(offset)
+        max_size = max(h, w)
+        sqr_image = np.pad(
+            image,
+            ((0, max_size - h), (0, max_size - w), (0, 0)),
+            mode="constant",
+            constant_values=0,
+        )
+        detection_result = detector.detect_plate(sqr_image)
 
         for i, b in enumerate(detection_result):
             _, plate = img_transform(image, detection_result[i][5:])
@@ -1167,10 +1158,10 @@ def recognize_plates(frame, detected_vehicles, detector: RemotePlateDetector):
             # logging.info(plate_number)
             plate_number = "unknown" if plate_number is None else plate_number
             plate_box = (
-                int(bbox[0] + offsets_result[i][1] + b[0]),
-                int(bbox[1] + offsets_result[i][0] + b[1]),
-                int(bbox[0] + offsets_result[i][1] + b[2]),
-                int(bbox[1] + offsets_result[i][0] + b[3]),
+                int(bbox[0] + b[0]),
+                int(bbox[1] + b[1]),
+                int(bbox[0] + b[2]),
+                int(bbox[1] + b[3]),
             )
             license_plate = (
                 DEFAULT_LICENSE_PLATE_LABEL,
