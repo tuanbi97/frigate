@@ -61,6 +61,7 @@ export default function Events({ path, ...props }) {
     timezone,
     favorites: props.favorites ?? 0,
     event: props.event,
+    is_debug: props.is_debug ?? 'false',
   });
   const [state, setState] = useState({
     showDownloadMenu: false,
@@ -674,6 +675,11 @@ export default function Events({ path, ...props }) {
                           <Score className="w-5 h-5 mr-2 inline" />
                           {event?.data?.attributes[0]?.text}
                         </div>
+                        {searchParams.is_debug == 'true' ? (
+                          <div>
+                            {event.id}
+                          </div>
+                        ) : null}
                       </div>
                       <div class="hidden sm:flex flex-col justify-end mr-2">
                         {event.end_time && event.has_snapshot && (event?.data?.type || 'object') == 'object' && (

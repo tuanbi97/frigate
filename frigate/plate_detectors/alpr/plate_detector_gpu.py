@@ -16,9 +16,11 @@ from frigate.plate_detectors.alpr.retina_plate.utils.nms.py_cpu_nms import py_cp
 
 
 class Plate_Detector:
-    def __init__(self, load_to_cpu=False):
+    def __init__(self, load_to_cpu=False, use_remote_model=False):
         self.debug = False
-        self.model = self.load_model(cfg_plate, load_to_cpu)
+        self.model = None
+        if not use_remote_model:
+            self.model = self.load_model(cfg_plate, load_to_cpu)
         self.config = cfg_plate
         self.image_size = (
             cfg_plate["max_size"],
@@ -35,7 +37,8 @@ class Plate_Detector:
         priors = priorbox.forward()
         if self.config["gpu_inference"]:
             priors = priors.to(self.device)
-            self.model = self.model.to(self.device)
+            if self.model is not None:
+                self.model = self.model.to(self.device)
         self.prior_data = priors.data
         self.scale = torch.Tensor(
             [
@@ -90,7 +93,8 @@ class Plate_Detector:
                     "cuda" if torch.cuda.is_available() else "cpu"
                 )
                 priors = priors.to(self.device)
-                self.model = self.model.to(self.device)
+                if self.model:
+                    self.model = self.model.to(self.device)
             self.prior_data = priors.data
 
         if debug:

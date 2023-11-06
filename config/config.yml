@@ -22,6 +22,11 @@ objects:
 #       width: 1920
 #       fps: 5
 
+detect:
+  height: 1080
+  width: 1920
+  fps: 5
+  
 cameras:
   camera1: # <------ Name the camera
     ffmpeg:
@@ -174,8 +179,7 @@ cameras:
   #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/1601
   #         roles:
   #           - detect
-  #           - rtmp
-
+  #           # - rtmp
   # camera19:
   #   ffmpeg:
   #     hwaccel_args: preset-nvidia-h264

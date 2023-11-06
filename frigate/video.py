@@ -27,10 +27,13 @@ from frigate.log import LogPipe
 from frigate.motion import MotionDetector
 from frigate.motion.improved_motion import ImprovedMotionDetector
 from frigate.object_detection import RemoteObjectDetector
-from frigate.plate_detectors.alpr.plate_checker import Plate_Checker
-from frigate.plate_detectors.alpr.plate_detector_gpu import Plate_Detector
-from frigate.plate_detectors.alpr.plate_recognizer import Plate_Recognizer
 from frigate.plate_detectors.alpr.retina_plate.utils.utils import img_transform
+from frigate.plate_detectors.remote_plate_detector.alpr_plate_detector import (
+    AlprPlateDetector,
+)
+from frigate.plate_detectors.remote_plate_detector.remote_plate_detector import (
+    RemotePlateDetector,
+)
 from frigate.ptz.autotrack import ptz_moving_at_frame_time
 from frigate.track import ObjectTracker
 from frigate.track.norfair_tracker import NorfairTracker
@@ -468,6 +471,7 @@ def track_camera(
     detected_objects_queue,
     process_info,
     ptz_metrics,
+    serving_grpc_channel,
 ):
     stop_event = mp.Event()
 
@@ -506,10 +510,8 @@ def track_camera(
     )
 
     object_tracker = NorfairTracker(config, ptz_metrics)
-    # Use gpu for Plate detector
-    plate_detector = Plate_Detector(load_to_cpu=False)
-    plate_recognizer = Plate_Recognizer()
-    plate_checker = Plate_Checker()
+
+    remote_plate_detector = AlprPlateDetector(serving_grpc_channel)
 
     frame_manager = SharedMemoryFrameManager()
 
@@ -522,9 +524,7 @@ def track_camera(
         frame_manager,
         motion_detector,
         object_detector,
-        plate_detector,
-        plate_recognizer,
-        plate_checker,
+        remote_plate_detector,
         object_tracker,
         detected_objects_queue,
         process_info,
@@ -751,9 +751,7 @@ def process_frames(
     frame_manager: FrameManager,
     motion_detector: MotionDetector,
     object_detector: RemoteObjectDetector,
-    plate_detector: Plate_Detector,
-    plate_recognizer: Plate_Recognizer,
-    plate_checker: Plate_Checker,
+    remote_plate_detector: RemotePlateDetector,
     object_tracker: ObjectTracker,
     detected_objects_queue: mp.Queue,
     process_info: dict,
@@ -963,11 +961,7 @@ def process_frames(
                     if d[0] in vehicle_objects_to_track
                 ]
                 license_results = recognize_plates(
-                    rgb_frame,
-                    detected_vehicles,
-                    plate_detector,
-                    plate_recognizer,
-                    plate_checker,
+                    rgb_frame, detected_vehicles, remote_plate_detector
                 )
                 consolidated_detections.extend(
                     [result[1] for result in license_results]
@@ -1020,6 +1014,7 @@ def process_frames(
                                 "text": license_result[0],
                             }
                         )
+                        break
 
             detections[obj["id"]] = {**obj, "attributes": attributes}
 
@@ -1033,20 +1028,32 @@ def process_frames(
             cv2.imwrite(
                 f"debug/frames/track-{'{:.6f}'.format(frame_time)}.jpg", bgr_frame
             )
-        # debug
+        # debug plate
         if False:
             bgr_frame = cv2.cvtColor(
                 frame,
                 cv2.COLOR_YUV2BGR_I420,
             )
-            logging.info(np.shape(bgr_frame))
-            for idx, obj in enumerate(object_tracker.tracked_objects.values()):
-                b = obj["box"]
-                crop_image = bgr_frame[b[1] : b[3], b[0] : b[2]]
-                cv2.imwrite(
-                    f"debug/plate_test/{camera_name}-{'{:.6f}'.format(frame_time)}-{idx}.jpg",
-                    crop_image,
-                )
+            debug_dir = f"debug/plate_test/{camera_name}"
+            if not os.path.exists(debug_dir):
+                os.makedirs(debug_dir)
+            try:
+                for idx, obj in enumerate(object_tracker.tracked_objects.values()):
+                    if obj["frame_time"] == frame_time:
+                        b = obj["box"]
+                        crop_image = bgr_frame[b[1] : b[3], b[0] : b[2]]
+                        label = obj["label"]
+                        cv2.imwrite(
+                            os.path.join(
+                                debug_dir,
+                                f"{camera_name}-{frame_time}-{label}-{obj['id']}"
+                                + ".jpg",
+                            ),
+                            crop_image,
+                        )
+            except Exception:
+                logging.info("Cannot write debug image")
+                logging.info(np.shape(crop_image))
 
         if False:
             bgr_frame = cv2.cvtColor(
@@ -1128,34 +1135,30 @@ def process_frames(
             frame_manager.close(f"{camera_name}{frame_time}")
 
 
-def recognize_plates(
-    frame,
-    detected_vehicles,
-    detector: Plate_Detector,
-    recognizer: Plate_Recognizer,
-    checker: Plate_Checker,
-):
+def recognize_plates(frame, detected_vehicles, detector: RemotePlateDetector):
     results = []
     # start = time.time()
     # logging.info(len(detected_vehicles))
     for vehicle in detected_vehicles:
         # start = time.time()
         bbox = vehicle[2]
-        image = frame[bbox[1] : bbox[3], bbox[0] : bbox[2]]
-        image_processed = detector.get_input(image)
-        model_output = detector.detect(image_processed)
-        detection_result = detector.post_process(
-            model_output[0], model_output[1], model_output[2]
+        image = np.float32(frame[bbox[1] : bbox[3], bbox[0] : bbox[2]])
+        # convert image to squares
+        h, w, _ = image.shape
+        max_size = max(h, w)
+        sqr_image = np.pad(
+            image,
+            ((0, max_size - h), (0, max_size - w), (0, 0)),
+            mode="constant",
+            constant_values=0,
         )
+        detection_result = detector.detect_plate(sqr_image)
+
         for i, b in enumerate(detection_result):
             _, plate = img_transform(image, detection_result[i][5:])
-            ocr_image_processed = recognizer.get_input(plate)
-            ocr_model_out = recognizer.run(ocr_image_processed)
-            ocr_result = recognizer.post_process(ocr_model_out)
-            plate_name = ocr_result[0]
-            check_result = checker.run(plate_name)
-            if not check_result or not check_result[1]:
-                plate_name = "unknown"
+            plate_number = detector.recognize_plate(plate)
+            # logging.info(plate_number)
+            plate_number = "unknown" if plate_number is None else plate_number
             plate_box = (
                 int(bbox[0] + b[0]),
                 int(bbox[1] + b[1]),
@@ -1173,7 +1176,7 @@ def recognize_plates(
             # logging.info("license:")
             # logging.info(license_plate)
             # logging.info(plate_name)
-            results.append((plate_name, license_plate))
+            results.append((plate_number, license_plate))
         # logging.info(time.time() - start)
     # logging.info(time.time() - start)
     return results
