@@ -481,6 +481,45 @@ class CameraState:
         self.previous_frame_id = None
         self.callbacks = defaultdict(list)
         self.ptz_autotracker_thread = ptz_autotracker_thread
+    
+    def get_current_frame_results(self, draw_options={}):
+        with self.current_frame_lock:
+            frame_time = self.current_frame_time
+            tracked_objects = {k: v.to_dict() for k, v in self.tracked_objects.items()}
+            motion_boxes = self.motion_boxes.copy()
+            regions = self.regions.copy()
+        results = {
+            'objects': [],
+        }
+        
+        if draw_options.get("bounding_boxes"):
+            # draw the bounding boxes on the frame
+            for obj in tracked_objects.values():
+                if obj["frame_time"] == frame_time:
+                    thickness = 2
+                    color = self.config.model.colormap[obj["label"]]
+                else:
+                    continue
+                    thickness = 2
+                    color = (255, 0, 0)
+                # draw the bounding boxes on the frame
+                box = obj["box"]
+                text = (
+                    obj["label"]
+                    if (
+                        not obj.get("sub_label")
+                        or not is_label_printable(obj["sub_label"][0])
+                    )
+                    else obj["sub_label"][0]
+                )
+                results['objects'].append({
+                    'box': box,
+                    'text': text,
+                    'thickness': thickness,
+                    'color': color
+                })
+
+        return results
 
     def get_current_frame(self, draw_options={}):
         with self.current_frame_lock:
@@ -499,6 +538,7 @@ class CameraState:
                     thickness = 2
                     color = self.config.model.colormap[obj["label"]]
                 else:
+                    continue
                     thickness = 1
                     color = (255, 0, 0)
 
@@ -1058,6 +1098,9 @@ class TrackedObjectProcessor(threading.Thread):
             )
 
         return self.camera_states[camera].get_current_frame(draw_options)
+    
+    def get_current_frame_results(self, camera, draw_options={}):
+        return self.camera_states[camera].get_current_frame_results(draw_options)
 
     def get_current_frame_time(self, camera) -> int:
         """Returns the latest frame time for a given camera."""

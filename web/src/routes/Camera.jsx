@@ -17,6 +17,7 @@ import WebRtcPlayer from '../components/WebRtcPlayer';
 import '../components/MsePlayer';
 import CameraControlPanel from '../components/CameraControlPanel';
 import { baseUrl } from '../api/baseUrl';
+import AutoUpdatingCameraBBox from '../components/AutoUpdatingCameraBBox';
 
 const emptyObject = Object.freeze({});
 
@@ -158,8 +159,14 @@ export default function Camera({ camera }) {
   } else if (viewMode === 'debug') {
     player = (
       <Fragment>
-        <div>
-          <AutoUpdatingCameraImage camera={camera} searchParams={searchParams} />
+        <div className="max-w-5xl relative">
+          <video-stream
+            mode="mse"
+            src={
+              new URL(`${baseUrl.replace(/^http/, 'ws').replace('5173', '5000')}live/webrtc/api/ws?src=${cameraConfig.live.stream_name}`)
+            }
+          />
+          <AutoUpdatingCameraBBox camera={camera} searchParams={searchParams} />
         </div>
 
         <Button onClick={handleToggleSettings} type="text">

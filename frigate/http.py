@@ -1362,6 +1362,26 @@ def latest_frame(camera_name):
         )
 
 
+@bp.route("/<camera_name>/latest_results", methods=["GET"])
+def latest_results(camera_name):
+    draw_options = {
+        "bounding_boxes": request.args.get("bbox", type=int),
+        "timestamp": request.args.get("timestamp", type=int),
+        "zones": request.args.get("zones", type=int),
+        "mask": request.args.get("mask", type=int),
+        "motion_boxes": request.args.get("motion", type=int),
+        "regions": request.args.get("regions", type=int),
+    }
+
+    if camera_name in current_app.frigate_config.cameras:
+        start = time.time()
+        results = current_app.detected_frames_processor.get_current_frame_results(
+            camera_name, draw_options
+        )
+        logging.info((time.time() - start) * 1000)
+        return jsonify(results)
+
+
 @bp.route("/<camera_name>/recordings/<frame_time>/snapshot.png")
 def get_snapshot_from_recording(camera_name: str, frame_time: str):
     if camera_name not in current_app.frigate_config.cameras:

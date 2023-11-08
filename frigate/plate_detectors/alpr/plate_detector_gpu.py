@@ -1,7 +1,9 @@
+import logging
 import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
+import tensorflow as tf
 
 from frigate.plate_detectors.alpr.retina_plate.detect_config import cfg_plate
 from frigate.plate_detectors.alpr.retina_plate.layers.functions.prior_box import (
@@ -13,14 +15,16 @@ from frigate.plate_detectors.alpr.retina_plate.utils.box_utils import (
     decode_landm,
 )
 from frigate.plate_detectors.alpr.retina_plate.utils.nms.py_cpu_nms import py_cpu_nms
-
+from tensorflow_serving.apis import predict_pb2
 
 class Plate_Detector:
-    def __init__(self, load_to_cpu=False, use_remote_model=False):
+    def __init__(self, prediction_service_stub=None, load_to_cpu=False, use_remote_model=False):
         self.debug = False
         self.model = None
         if not use_remote_model:
             self.model = self.load_model(cfg_plate, load_to_cpu)
+        else:
+            self.prediction_service_stub = prediction_service_stub
         self.config = cfg_plate
         self.image_size = (
             cfg_plate["max_size"],
@@ -148,15 +152,103 @@ class Plate_Detector:
         net.eval()
         return net
 
-    def detect(self, input_image):
-        """
-        :param input_image: the processed image from get_input function
-        :return:
-        """
-        if self.config["gpu_inference"]:
-            input_image = input_image.to(self.device)
-        loc, conf, landms = self.model(input_image)
-        return loc, conf, landms
+    def detect(self, img):
+        origin_size = img.shape[0:2]
+        max_size = self.config['max_size']
+        im_shape = img.shape
+        im_size_min = np.min(im_shape[0:2])
+        im_size_max = np.max(im_shape[0:2])
+        resize = float(max_size) / float(im_size_min)
+        # prevent bigger axis from being more than max_size:
+        if np.round(resize * im_size_max) > max_size:
+            resize = float(max_size) / float(im_size_max)
+        if resize != 1:
+            img = cv2.resize(img, None, None, fx=resize, fy=resize, interpolation=cv2.INTER_LINEAR)
+        im_height, im_width, _ = img.shape
+        image_size = (im_width, im_height)
+
+        # Update Anchor Box for new custom size
+        if (im_width / im_height) != (self.config['image_ratio'][1] / self.config['image_ratio'][0]):
+            print("Updated anchor box")
+            priorbox = PriorBox(self.config, image_size=(image_size[1], image_size[0]),
+                                phase='test')  # height, width
+            priors = priorbox.forward()
+            if self.config['gpu_inference']:
+                priors = priors.to(self.device)
+            prior_data = priors.data
+        else:
+          prior_data = self.prior_data
+        img = np.float32(img)
+        img -= (104, 117, 123)
+        img = img.transpose(2, 0, 1)
+        img = np.expand_dims(img, axis=0)
+        # img = torch.from_numpy(img)
+
+        # if self.config['gpu_inference']:
+        #     img = img.to(self.device)
+        
+        # Run model
+        request = predict_pb2.PredictRequest()
+        request.model_spec.name = "plate_detection"
+        request.model_spec.signature_name = "serving_default"
+        request.inputs["input"].CopyFrom(
+            tf.make_tensor_proto(img[0], shape=img.shape)
+        )
+        try:
+            response = self.prediction_service_stub.Predict(request)
+        except Exception as e:
+            logging.warn(e)
+            return []
+        loc_array = tf.make_ndarray(response.outputs["loc"])
+        conf_array = tf.make_ndarray(response.outputs["conf"])
+        landms_array = tf.make_ndarray(response.outputs["landms"])
+        detection_boxes = torch.from_numpy(loc_array).to(self.device)
+        detection_scores = torch.from_numpy(conf_array).to(self.device)
+        detection_landmark = torch.from_numpy(landms_array).to(self.device)
+
+        # Decode
+        detection_scores = F.softmax(detection_scores, dim=-1)
+        boxes = decode(detection_boxes.squeeze(0), prior_data, self.config['variance'])
+        boxes[:, 0::2] = boxes[:, 0::2] * origin_size[1]  # width
+        boxes[:, 1::2] = boxes[:, 1::2] * origin_size[0]  # height
+
+        landms = decode_landm(detection_landmark.squeeze(0), prior_data, self.config['variance'])
+        landms[:, 0::2] = landms[:, 0::2] * origin_size[1]
+        landms[:, 1::2] = landms[:, 1::2] * origin_size[0]
+
+        if not self.config['gpu_inference']:
+            detection_scores = detection_scores.squeeze(0).detach().numpy()
+            boxes = boxes.detach().numpy()
+            landms = landms.detach().numpy()
+        else:
+            detection_scores = detection_scores.squeeze(0).cpu().detach().numpy()
+            boxes = boxes.cpu().detach().numpy()
+            landms = landms.cpu().detach().numpy()
+        scores = detection_scores[:, 1]
+        # ignore low scores
+        inds = np.where(scores > self.config['confidence_threshold'])[0]
+        boxes = boxes[inds]
+        landms = landms[inds]
+        scores = scores[inds]
+
+        # keep top-K before NMS
+        order = scores.argsort()[::-1][:self.config['top_k']]
+        boxes = boxes[order]
+        landms = landms[order]
+        scores = scores[order]
+        # do NMS
+        dets = np.hstack((boxes, scores[:, np.newaxis])).astype(np.float32, copy=False)
+        keep = py_cpu_nms(dets, self.config['nms_threshold'])
+        # keep = nms(dets, args.nms_threshold,force_cpu=args.cpu)
+        dets = dets[keep, :]
+        landms = landms[keep]
+
+        # keep top-K faster NMS
+        dets = dets[:self.config['keep_top_k'], :]
+        landms = landms[:self.config['keep_top_k'], :]
+
+        dets = np.concatenate((dets, landms), axis=1)
+        return dets
 
     def post_process(self, detection_boxes, detection_scores, detection_landmark):
         """
