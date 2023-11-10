@@ -1288,12 +1288,18 @@ def latest_frame(camera_name):
         "motion_boxes": request.args.get("motion", type=int),
         "regions": request.args.get("regions", type=int),
     }
+    key_frame_ms = request.args.get("cache", type=float)
     resize_quality = request.args.get("quality", default=70, type=int)
 
     if camera_name in current_app.frigate_config.cameras:
         frame = current_app.detected_frames_processor.get_current_frame(
             camera_name, draw_options
         )
+        frame_time = current_app.detected_frames_processor.get_current_frame_time(camera_name)
+        camera_fps = current_app.frigate_config.cameras.get(camera_name).detect.fps
+        # logging.info(f"key frame {key_frame_ms}, {key_frame_ms - frame_time * 1000}")
+        # if key_frame_ms > frame_time and key_frame_ms - frame_time * 1000 > 1000.0 / camera_fps:
+        #     return Response(status=204)
         retry_interval = float(
             current_app.frigate_config.cameras.get(camera_name).ffmpeg.retry_interval
             or 10

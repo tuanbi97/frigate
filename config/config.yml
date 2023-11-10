@@ -27,6 +27,7 @@ detect:
   width: 1920
   fps: 10
   detect_stream_fps: 5
+  max_detect_frame: 2
 
 cameras:
   camera1: # <------ Name the camera

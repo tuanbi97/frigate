@@ -182,6 +182,9 @@ def capture_frames(
     frame_shape,
     frame_manager: FrameManager,
     frame_queue,
+    current_num_detect_frame: mp.Value,
+    detect_stream_fps,
+    max_detect_frame,
     fps: mp.Value,
     skipped_fps: mp.Value,
     current_frame: mp.Value,
@@ -192,11 +195,21 @@ def capture_frames(
     frame_rate.start()
     skipped_eps = EventsPerSecond()
     skipped_eps.start()
+    last_detect_fps_frame = 0.0
     while True:
         fps.value = frame_rate.eps()
         skipped_fps.value = skipped_eps.eps()
 
         current_frame.value = datetime.datetime.now().timestamp()
+
+        need_detect = False
+        frame_interval = 1.0 / detect_stream_fps
+        if last_detect_fps_frame == 0.0 or (current_frame.value - last_detect_fps_frame > frame_interval and current_num_detect_frame.value < max_detect_frame):
+            need_detect = True
+        # logging.info(f"capture: {need_detect}, {current_frame.value}, {current_num_detect_frame.value}, {last_detect_fps_frame}")
+        if current_frame.value - last_detect_fps_frame > frame_interval:
+            last_detect_fps_frame = current_frame.value
+
         frame_name = f"{camera_name}{current_frame.value}"
         frame_buffer = frame_manager.create(frame_name, frame_size)
         try:
@@ -217,22 +230,18 @@ def capture_frames(
 
         frame_rate.update()
 
-        is_exception = False
         # don't lock the queue to check, just try since it should rarely be full
         try:
             # add to the queue
-            frame_queue.put(current_frame.value, False)
+            frame_queue.put((current_frame.value, need_detect), False)
+            current_num_detect_frame.value = current_num_detect_frame.value + int(need_detect)
             # close the frame
             frame_manager.close(frame_name)
         except queue.Full as e:
             # if the queue is full, skip this frame
-            is_exception = True
-            if camera_name == "camera1":
-                logging.info(f"{current_frame.value} deteled")
+            logging.info(f"{current_frame.value} deleted")
             skipped_eps.update()
             frame_manager.delete(frame_name)
-        if camera_name == "camera1" and not is_exception:
-            logging.info(current_frame.value)
 
 
 class CameraWatchdog(threading.Thread):
@@ -241,6 +250,7 @@ class CameraWatchdog(threading.Thread):
         camera_name,
         config: CameraConfig,
         frame_queue,
+        current_num_detect_frame,
         camera_fps,
         skipped_fps,
         ffmpeg_pid,
@@ -258,6 +268,7 @@ class CameraWatchdog(threading.Thread):
         self.skipped_fps = skipped_fps
         self.ffmpeg_pid = ffmpeg_pid
         self.frame_queue = frame_queue
+        self.current_num_detect_frame = current_num_detect_frame
         self.frame_shape = self.config.frame_shape_yuv
         self.frame_size = self.frame_shape[0] * self.frame_shape[1]
         self.stop_event = stop_event
@@ -375,6 +386,9 @@ class CameraWatchdog(threading.Thread):
             self.ffmpeg_detect_process,
             self.frame_shape,
             self.frame_queue,
+            self.current_num_detect_frame,
+            self.config.detect.detect_stream_fps,
+            self.config.detect.max_detect_frame,
             self.camera_fps,
             self.skipped_fps,
             self.stop_event,
@@ -412,6 +426,9 @@ class CameraCapture(threading.Thread):
         ffmpeg_process,
         frame_shape,
         frame_queue,
+        current_num_detect_frame,
+        detect_stream_fps,
+        max_detect_frame,
         fps,
         skipped_fps,
         stop_event,
@@ -421,6 +438,9 @@ class CameraCapture(threading.Thread):
         self.camera_name = camera_name
         self.frame_shape = frame_shape
         self.frame_queue = frame_queue
+        self.current_num_detect_frame = current_num_detect_frame
+        self.detect_stream_fps = detect_stream_fps
+        self.max_detect_frame = max_detect_frame
         self.fps = fps
         self.stop_event = stop_event
         self.skipped_fps = skipped_fps
@@ -436,6 +456,9 @@ class CameraCapture(threading.Thread):
             self.frame_shape,
             self.frame_manager,
             self.frame_queue,
+            self.current_num_detect_frame,
+            self.detect_stream_fps,
+            self.max_detect_frame,
             self.fps,
             self.skipped_fps,
             self.current_frame,
@@ -460,6 +483,7 @@ def capture_camera(name, config: CameraConfig, process_info):
         name,
         config,
         frame_queue,
+        process_info["current_num_detect_frame"],
         process_info["camera_fps"],
         process_info["skipped_fps"],
         process_info["ffmpeg_pid"],
@@ -775,6 +799,7 @@ def process_frames(
     fps = process_info["process_fps"]
     detection_fps = process_info["detection_fps"]
     current_frame_time = process_info["detection_frame"]
+    current_num_detect_frame = process_info["current_num_detect_frame"]
 
     fps_tracker = EventsPerSecond()
     fps_tracker.start()
@@ -782,50 +807,24 @@ def process_frames(
     startup_scan_counter = 0
 
     region_min_size = get_min_region_size(model_config)
-    detect_frame_interval = 1000 // detect_config.detect_stream_fps
 
     while not stop_event.is_set():
         try:
             if exit_on_empty:
-                frame_time = frame_queue.get(False)
+                frame_time, need_detect = frame_queue.get(False)
             else:
-                frame_time = frame_queue.get(True, 1)
+                frame_time, need_detect = frame_queue.get(True, 1)
         except queue.Empty:
             if exit_on_empty:
                 logger.info("Exiting track_objects...")
                 break
             continue
 
-        need_detect = False
-        if (
-            current_frame_time.value == 0.0
-            or (frame_time - current_frame_time.value) * 1000 > detect_frame_interval
-        ):
-            # logging.info((frame_time - current_frame_time.value) * 1000)
-            # logging.info(detect_frame_interval)
-            need_detect = True
         if camera_name == "camera1":
             logging.info(
                 f"{int(need_detect)}, {frame_time}, {(frame_time - current_frame_time.value) * 1000}"
             )
-        if not need_detect:
-            if detected_objects_queue.full():
-                frame_manager.delete(f"{camera_name}{frame_time}")
-            else:
-                fps_tracker.update()
-                fps.value = fps_tracker.eps()
-                detected_objects_queue.put(
-                    (
-                        camera_name,
-                        frame_time,
-                        None,
-                        None,
-                        None,
-                    )
-                )
-                detection_fps.value = object_detector.fps.eps()
-                frame_manager.close(f"{camera_name}{frame_time}")
-            continue
+        current_num_detect_frame.value = current_num_detect_frame.value - int(need_detect)
 
         current_frame_time.value = frame_time
         ptz_metrics["ptz_frame_time"].value = frame_time
@@ -862,7 +861,7 @@ def process_frames(
         # if detection is disabled
         if not detection_enabled.value:
             object_tracker.match_and_update(frame_time, [])
-        else:
+        elif need_detect:
             # get stationary object ids
             # check every Nth frame for stationary objects
             # disappeared objects are not stationary
@@ -1166,9 +1165,9 @@ def process_frames(
                 (
                     camera_name,
                     frame_time,
-                    detections,
-                    motion_boxes,
-                    regions,
+                    detections if need_detect else None,
+                    motion_boxes  if need_detect else None,
+                    regions  if need_detect else None,
                 )
             )
             detection_fps.value = object_detector.fps.eps()

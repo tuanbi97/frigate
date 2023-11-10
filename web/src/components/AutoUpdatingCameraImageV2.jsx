@@ -10,18 +10,25 @@ export default function AutoUpdatingCameraImageV2({ camera, searchParams = '', s
   const cameraFps = config ? config.cameras[camera].detect.fps : 5;
   const minLoadTimeoutMs = 1000 / cameraFps;
 
-  const handleLoad = useCallback(() => {
+  const handleLoad = useCallback((status) => {
     const loadTime = Date.now() - key;
     setFps((1000 / Math.max(loadTime, minLoadTimeoutMs)).toFixed(1));
     setTimeout(
       () => {
-        setKey(Date.now());
+        // if (status == "loaded")
+        //   setKey(key + minLoadTimeoutMs);
+        // else {
+        //   console.log("waiting");
+        //   setKey(key + 1);
+        // }
+        setKey(Date.now())
       },
+      // minLoadTimeoutMs
       loadTime > minLoadTimeoutMs ? 1 : minLoadTimeoutMs
     );
   }, [key, setFps]);
-  // const handleLoad = null;
 
+  // const handleLoad = null;
   // useEffect(() => {
   //   const loadTime = Date.now() - key;
   //   setFps((1000 / Math.max(loadTime, minLoadTimeoutMs)).toFixed(1));
@@ -29,7 +36,7 @@ export default function AutoUpdatingCameraImageV2({ camera, searchParams = '', s
   //     () => {
   //       setKey(Date.now());
   //     },
-  //     loadTime > minLoadTimeoutMs ? 1 : minLoadTimeoutMs
+  //     loadTime > minLoadTimeoutMs ? 1 : minLoadTimeoutMs - loadTime
   //   );
   // }, [key, setFps])
 

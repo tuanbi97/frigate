@@ -5,7 +5,7 @@ import useSWR from 'swr';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useResizeObserver } from '../hooks';
 
-export default function CameraImageV2({ camera, onload, searchParams = '', stretch = false, frameInterval=200 }) {
+export default function CameraImageV2({ camera, onload, searchParams = '', stretch = false, frameInterval = 200 }) {
   const { data: config } = useSWR('config');
   const apiHost = useApiHost();
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -16,7 +16,7 @@ export default function CameraImageV2({ camera, onload, searchParams = '', stret
   const [waitForPreload, setWaitForPreload] = useState(0);
   const [key, setKey] = useState(Date.now());
   const waitForMinFrames = Math.round(3000 / frameInterval);
-  const maxBufferFrames = Math.round(5000 / frameInterval);
+  const maxBufferFrames = Math.round(6000 / frameInterval);
 
   // Add scrollbar width (when visible) to the available observer width to eliminate screen juddering.
   // https://github.com/blakeblackshear/frigate/issues/1657
@@ -73,7 +73,7 @@ export default function CameraImageV2({ camera, onload, searchParams = '', stret
           return;
         }
       }
-    }, preloadedImages.length > maxBufferFrames ? 1 : frameInterval - loadTime);
+    }, preloadedImages.length > maxBufferFrames ? 1 : frameInterval);
 
     return () => clearTimeout(intervalId);
   }, [key]);
@@ -82,16 +82,28 @@ export default function CameraImageV2({ camera, onload, searchParams = '', stret
     if (!config || scaledHeight === 0) {
       return;
     }
+    console.log(searchParams);
     fetch(`${apiHost}api/${name}/latest.jpg?h=${scaledHeight}${searchParams ? `&${searchParams}` : ''}`)
-    .then(res => res.blob()).then(blob => {
-      const img = new Image();
-      img.onload = (event) => {
-        setHasLoaded(true);
-        setPreloadedImages((prevImages) => [...prevImages, img]);
-        onload && onload(event);
-      };
-      img.src=URL.createObjectURL(blob);
-    });
+      .then(res => {
+        return res.status == 204 ? Promise.resolve(null) : res.blob()
+      })
+      .then(blob => {
+        if (blob) {
+          const img = new Image();
+          img.onload = (event) => {
+            setHasLoaded(true);
+            setPreloadedImages((prevImages) => [...prevImages, img]);
+            onload && onload("loaded");
+          };
+          img.src = URL.createObjectURL(blob);
+        }
+        else {
+          onload && onload("waiting");
+        }
+      })
+      .catch(error => {
+        console.log(error);
+      });
   }, [apiHost, name, searchParams, scaledHeight, config, onload]);
 
   return (

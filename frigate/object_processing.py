@@ -489,7 +489,10 @@ class CameraState:
         with self.current_frame_lock:
             frame_copy = np.copy(self._current_frame)
             frame_time = self.current_frame_time
-            logging.info(f"current {frame_time}")
+            logging.info(f"Getting {frame_time}")
+            # logging.info(f"Getting tracked {len(self.tracked_objects)}")
+            # logging.info(f"Getting motion_boxes {len(self.motion_boxes) if self.motion_boxes is not None else None}")
+            # logging.info(f"Getting regions {len(self.regions) if self.regions is not None else None}")
             tracked_objects = {
                 k: v.to_dict() for k, v in self.tracked_objects.items()
             }
@@ -508,7 +511,7 @@ class CameraState:
                 else:
                     thickness = 1
                     color = (255, 0, 0)
-                    continue
+                    # continue
 
                 # draw thicker box around ptz autotracked object
                 if (
@@ -783,6 +786,7 @@ class CameraState:
         with self.current_frame_lock:
             self.tracked_objects = tracked_objects
             self.current_frame_time = frame_time
+            logging.info(f"Updating camera {self.current_frame_time}")
             self.motion_boxes = motion_boxes
             self.regions = regions
             self._current_frame = current_frame
