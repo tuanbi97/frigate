@@ -1,5 +1,6 @@
 import { h, Fragment } from 'preact';
 import AutoUpdatingCameraImage from '../components/AutoUpdatingCameraImage';
+import AutoUpdatingCameraImageV2 from '../components/AutoUpdatingCameraImageV2';
 import ActivityIndicator from '../components/ActivityIndicator';
 import JSMpegPlayer from '../components/JSMpegPlayer';
 import Button from '../components/Button';
@@ -159,7 +160,8 @@ export default function Camera({ camera }) {
     player = (
       <Fragment>
         <div>
-          <AutoUpdatingCameraImage camera={camera} searchParams={searchParams} />
+          {/* <AutoUpdatingCameraImage camera={camera} searchParams={searchParams} /> */}
+          <AutoUpdatingCameraImageV2 camera={camera} searchParams={searchParams} />
         </div>
 
         <Button onClick={handleToggleSettings} type="text">
