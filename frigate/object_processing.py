@@ -483,12 +483,19 @@ class CameraState:
         self.ptz_autotracker_thread = ptz_autotracker_thread
 
     def get_current_frame(self, draw_options={}):
+        tracked_objects = {}
+        motion_boxes = []
+        regions = []
         with self.current_frame_lock:
             frame_copy = np.copy(self._current_frame)
             frame_time = self.current_frame_time
-            tracked_objects = {k: v.to_dict() for k, v in self.tracked_objects.items()}
-            motion_boxes = self.motion_boxes.copy()
-            regions = self.regions.copy()
+            logging.info(f"current {frame_time}")
+            tracked_objects = {
+                k: v.to_dict() for k, v in self.tracked_objects.items()
+            }
+            if self.motion_boxes is not None:
+                motion_boxes = self.motion_boxes.copy()
+                regions = self.regions.copy()
 
         frame_copy = cv2.cvtColor(frame_copy, cv2.COLOR_YUV2BGR_I420)
         # draw on the frame
@@ -501,6 +508,7 @@ class CameraState:
                 else:
                     thickness = 1
                     color = (255, 0, 0)
+                    continue
 
                 # draw thicker box around ptz autotracked object
                 if (
@@ -616,12 +624,18 @@ class CameraState:
             frame_id, self.camera_config.frame_shape_yuv
         )
 
-        tracked_objects = self.tracked_objects.copy()
-        current_ids = set(current_detections.keys())
-        previous_ids = set(tracked_objects.keys())
-        removed_ids = previous_ids.difference(current_ids)
-        new_ids = current_ids.difference(previous_ids)
-        updated_ids = current_ids.intersection(previous_ids)
+        if current_detections is not None:
+            tracked_objects = self.tracked_objects.copy()
+            current_ids = set(current_detections.keys())
+            previous_ids = set(tracked_objects.keys())
+            removed_ids = previous_ids.difference(current_ids)
+            new_ids = current_ids.difference(previous_ids)
+            updated_ids = current_ids.intersection(previous_ids)
+        else:
+            tracked_objects = self.tracked_objects.copy()
+            removed_ids = set()
+            new_ids = set()
+            updated_ids = set()
 
         for id in new_ids:
             new_obj = tracked_objects[id] = TrackedObject(
@@ -678,92 +692,93 @@ class CameraState:
 
         # TODO: can i switch to looking this up and only changing when an event ends?
         # maintain best objects
-        for obj in tracked_objects.values():
-            object_type = obj.obj_data["label"]
-            # if the object's thumbnail is not from the current frame
-            if obj.false_positive or obj.thumbnail_data["frame_time"] != frame_time:
-                continue
-            if object_type in self.best_objects:
-                current_best = self.best_objects[object_type]
-                now = datetime.datetime.now().timestamp()
-                # if the object is a higher score than the current best score
-                # or the current object is older than desired, use the new object
-                if (
-                    is_better_thumbnail(
-                        object_type,
-                        current_best.thumbnail_data,
-                        obj.thumbnail_data,
-                        self.camera_config.frame_shape,
-                    )
-                    or (now - current_best.thumbnail_data["frame_time"])
-                    > self.camera_config.best_image_timeout
-                ):
+        if current_detections is not None:
+            for obj in tracked_objects.values():
+                object_type = obj.obj_data["label"]
+                # if the object's thumbnail is not from the current frame
+                if obj.false_positive or obj.thumbnail_data["frame_time"] != frame_time:
+                    continue
+                if object_type in self.best_objects:
+                    current_best = self.best_objects[object_type]
+                    now = datetime.datetime.now().timestamp()
+                    # if the object is a higher score than the current best score
+                    # or the current object is older than desired, use the new object
+                    if (
+                        is_better_thumbnail(
+                            object_type,
+                            current_best.thumbnail_data,
+                            obj.thumbnail_data,
+                            self.camera_config.frame_shape,
+                        )
+                        or (now - current_best.thumbnail_data["frame_time"])
+                        > self.camera_config.best_image_timeout
+                    ):
+                        self.best_objects[object_type] = obj
+                        for c in self.callbacks["snapshot"]:
+                            c(self.name, self.best_objects[object_type], frame_time)
+                else:
                     self.best_objects[object_type] = obj
                     for c in self.callbacks["snapshot"]:
                         c(self.name, self.best_objects[object_type], frame_time)
-            else:
-                self.best_objects[object_type] = obj
-                for c in self.callbacks["snapshot"]:
-                    c(self.name, self.best_objects[object_type], frame_time)
 
-        # update overall camera state for each object type
-        obj_counter = Counter(
-            obj.obj_data["label"]
-            for obj in tracked_objects.values()
-            if not obj.false_positive
-        )
+            # update overall camera state for each object type
+            obj_counter = Counter(
+                obj.obj_data["label"]
+                for obj in tracked_objects.values()
+                if not obj.false_positive
+            )
 
-        # keep track of all labels detected for this camera
-        total_label_count = 0
+            # keep track of all labels detected for this camera
+            total_label_count = 0
 
-        # report on detected objects
-        for obj_name, count in obj_counter.items():
-            total_label_count += count
+            # report on detected objects
+            for obj_name, count in obj_counter.items():
+                total_label_count += count
 
-            if count != self.object_counts[obj_name]:
-                self.object_counts[obj_name] = count
+                if count != self.object_counts[obj_name]:
+                    self.object_counts[obj_name] = count
+                    for c in self.callbacks["object_status"]:
+                        c(self.name, obj_name, count)
+
+            # publish for all labels detected for this camera
+            if total_label_count != self.object_counts.get("all"):
+                self.object_counts["all"] = total_label_count
                 for c in self.callbacks["object_status"]:
-                    c(self.name, obj_name, count)
+                    c(self.name, "all", total_label_count)
 
-        # publish for all labels detected for this camera
-        if total_label_count != self.object_counts.get("all"):
-            self.object_counts["all"] = total_label_count
-            for c in self.callbacks["object_status"]:
-                c(self.name, "all", total_label_count)
+            # expire any objects that are >0 and no longer detected
+            expired_objects = [
+                obj_name
+                for obj_name, count in self.object_counts.items()
+                if count > 0 and obj_name not in obj_counter
+            ]
+            for obj_name in expired_objects:
+                # Ignore the artificial all label
+                if obj_name == "all":
+                    continue
 
-        # expire any objects that are >0 and no longer detected
-        expired_objects = [
-            obj_name
-            for obj_name, count in self.object_counts.items()
-            if count > 0 and obj_name not in obj_counter
-        ]
-        for obj_name in expired_objects:
-            # Ignore the artificial all label
-            if obj_name == "all":
-                continue
+                self.object_counts[obj_name] = 0
+                for c in self.callbacks["object_status"]:
+                    c(self.name, obj_name, 0)
+                for c in self.callbacks["snapshot"]:
+                    c(self.name, self.best_objects[obj_name], frame_time)
 
-            self.object_counts[obj_name] = 0
-            for c in self.callbacks["object_status"]:
-                c(self.name, obj_name, 0)
-            for c in self.callbacks["snapshot"]:
-                c(self.name, self.best_objects[obj_name], frame_time)
-
-        # cleanup thumbnail frame cache
-        current_thumb_frames = {
-            obj.thumbnail_data["frame_time"]
-            for obj in tracked_objects.values()
-            if not obj.false_positive
-        }
-        current_best_frames = {
-            obj.thumbnail_data["frame_time"] for obj in self.best_objects.values()
-        }
-        thumb_frames_to_delete = [
-            t
-            for t in self.frame_cache.keys()
-            if t not in current_thumb_frames and t not in current_best_frames
-        ]
-        for t in thumb_frames_to_delete:
-            del self.frame_cache[t]
+            # cleanup thumbnail frame cache
+            current_thumb_frames = {
+                obj.thumbnail_data["frame_time"]
+                for obj in tracked_objects.values()
+                if not obj.false_positive
+            }
+            current_best_frames = {
+                obj.thumbnail_data["frame_time"] for obj in self.best_objects.values()
+            }
+            thumb_frames_to_delete = [
+                t
+                for t in self.frame_cache.keys()
+                if t not in current_thumb_frames and t not in current_best_frames
+            ]
+            for t in thumb_frames_to_delete:
+                del self.frame_cache[t]
 
         with self.current_frame_lock:
             self.tracked_objects = tracked_objects

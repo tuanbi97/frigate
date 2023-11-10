@@ -167,9 +167,10 @@ class FrigateApp:
                 "ffmpeg_pid": mp.Value("i", 0),  # type: ignore[typeddict-item]
                 # issue https://github.com/python/typeshed/issues/8799
                 # from mypy 0.981 onwards
-                "frame_queue": mp.Queue(maxsize=2),
+                "frame_queue": mp.Queue(maxsize=self.config.cameras[camera_name].detect.fps * 3),
                 "capture_process": None,
                 "process": None,
+                "detect_stream_fps": mp.Value("i", self.config.cameras[camera_name].detect.detect_stream_fps)
             }
             self.ptz_metrics[camera_name] = {
                 "ptz_autotracker_enabled": mp.Value(  # type: ignore[typeddict-item]
@@ -225,12 +226,12 @@ class FrigateApp:
         self.event_queue: Queue = mp.Queue()
         self.event_processed_queue: Queue = mp.Queue()
         self.video_output_queue: Queue = mp.Queue(
-            maxsize=sum(camera.enabled for camera in self.config.cameras.values()) * 2
+            maxsize=sum(camera.enabled for camera in self.config.cameras.values()) * 10
         )
 
         # Queue for cameras to push tracked objects to
         self.detected_frames_queue: Queue = mp.Queue(
-            maxsize=sum(camera.enabled for camera in self.config.cameras.values()) * 2
+            maxsize=sum(camera.enabled for camera in self.config.cameras.values()) * 10
         )
 
         # Queue for object recordings info

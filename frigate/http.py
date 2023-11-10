@@ -1299,10 +1299,10 @@ def latest_frame(camera_name):
             or 10
         )
 
-        if frame is None or datetime.now().timestamp() > (
-            current_app.detected_frames_processor.get_current_frame_time(camera_name)
-            + retry_interval
-        ):
+        if frame is None:
+        # if frame is None or datetime.now().timestamp() > (
+        #     current_app.detected_frames_processor.get_current_frame_time(camera_name)
+        #     + retry_interval):
             if current_app.camera_error_image is None:
                 error_image = glob.glob("/opt/frigate/frigate/images/camera-error.jpg")
 

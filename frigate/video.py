@@ -7,9 +7,11 @@ import os
 import queue
 import signal
 import subprocess as sp
+import sys
 import threading
 import time
 from collections import defaultdict
+import traceback
 
 import cv2
 import numpy as np
@@ -215,16 +217,22 @@ def capture_frames(
 
         frame_rate.update()
 
+        is_exception = False
         # don't lock the queue to check, just try since it should rarely be full
         try:
             # add to the queue
             frame_queue.put(current_frame.value, False)
             # close the frame
             frame_manager.close(frame_name)
-        except queue.Full:
+        except queue.Full as e:
             # if the queue is full, skip this frame
+            is_exception = True
+            if camera_name == "camera1":
+                logging.info(f"{current_frame.value} deteled")
             skipped_eps.update()
             frame_manager.delete(frame_name)
+        if camera_name == "camera1" and not is_exception:
+            logging.info(current_frame.value)
 
 
 class CameraWatchdog(threading.Thread):
@@ -774,6 +782,7 @@ def process_frames(
     startup_scan_counter = 0
 
     region_min_size = get_min_region_size(model_config)
+    detect_frame_interval = 1000 // detect_config.detect_stream_fps
 
     while not stop_event.is_set():
         try:
@@ -785,6 +794,37 @@ def process_frames(
             if exit_on_empty:
                 logger.info("Exiting track_objects...")
                 break
+            continue
+
+        need_detect = False
+        if (
+            current_frame_time.value == 0.0
+            or (frame_time - current_frame_time.value) * 1000 > detect_frame_interval
+        ):
+            # logging.info((frame_time - current_frame_time.value) * 1000)
+            # logging.info(detect_frame_interval)
+            need_detect = True
+        if camera_name == "camera1":
+            logging.info(
+                f"{int(need_detect)}, {frame_time}, {(frame_time - current_frame_time.value) * 1000}"
+            )
+        if not need_detect:
+            if detected_objects_queue.full():
+                frame_manager.delete(f"{camera_name}{frame_time}")
+            else:
+                fps_tracker.update()
+                fps.value = fps_tracker.eps()
+                detected_objects_queue.put(
+                    (
+                        camera_name,
+                        frame_time,
+                        None,
+                        None,
+                        None,
+                    )
+                )
+                detection_fps.value = object_detector.fps.eps()
+                frame_manager.close(f"{camera_name}{frame_time}")
             continue
 
         current_frame_time.value = frame_time

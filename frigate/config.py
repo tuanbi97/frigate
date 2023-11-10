@@ -350,6 +350,9 @@ class DetectConfig(FrigateBaseModel):
     height: Optional[int] = Field(title="Height of the stream for the detect role.")
     width: Optional[int] = Field(title="Width of the stream for the detect role.")
     fps: int = Field(
+        default=5, title="Number of frames per second to process."
+    )
+    detect_stream_fps: int = Field(
         default=5, title="Number of frames per second to process through detection."
     )
     enabled: bool = Field(default=True, title="Detection Enabled.")
