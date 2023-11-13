@@ -28,14 +28,22 @@ detect:
   fps: 10
 
 cameras:
-  camera1: # <------ Name the camera
+  test:
     ffmpeg:
-      hwaccel_args: preset-nvidia-h264
       inputs:
-        - path: rtsp://admin:HQ-0907979696@anphukp5c.vncctv.com:1024/Streaming/Unicast/channels/101
+        - path: /media/frigate/camera-test.mp4
+          input_args: -re -stream_loop -1 -fflags +genpts
           roles:
             - detect
             # - rtmp
+  # camera1: # <------ Name the camera
+  #   ffmpeg:
+  #     hwaccel_args: preset-nvidia-h264
+  #     inputs:
+  #       - path: rtsp://admin:HQ-0907979696@anphukp5c.vncctv.com:1024/Streaming/Unicast/channels/101
+  #         roles:
+  #           - detect
+  #           # - rtmp
   # camera2:
   #   ffmpeg:
   #     hwaccel_args: preset-nvidia-h264
@@ -43,7 +51,7 @@ cameras:
   #       - path: rtsp://admin:HQ-0907979696@anphukp5c.vncctv.com:1024/Streaming/Unicast/channels/201
   #         roles:
   #           - detect
-  #           - rtmp
+  #           # - rtmp
   # camera3:
   #   ffmpeg:
   #     hwaccel_args: preset-nvidia-h264
@@ -51,7 +59,7 @@ cameras:
   #       - path: rtsp://admin:HQ-0907979696@anphukp5c.vncctv.com:1024/Streaming/Unicast/channels/401
   #         roles:
   #           - detect
-  #           - rtmp
+  #           # - rtmp
   # camera4:
   #   ffmpeg:
   #     hwaccel_args: preset-nvidia-h264
@@ -59,7 +67,7 @@ cameras:
   #       - path: rtsp://admin:HQ-0907979696@anphukp5c.vncctv.com:1024/Streaming/Unicast/channels/501
   #         roles:
   #           - detect
-  #           - rtmp
+  #           # - rtmp
   # camera5:
   #   ffmpeg:
   #     hwaccel_args: preset-nvidia-h264
@@ -67,7 +75,7 @@ cameras:
   #       - path: rtsp://admin:HQ-0907979696@anphukp5.vncctv.com:1026/Streaming/Unicast/channels/1201
   #         roles:
   #           - detect
-  #           - rtmp
+  #           # - rtmp
   # camera6:
   #   ffmpeg:
   #     hwaccel_args: preset-nvidia-h264
@@ -75,7 +83,7 @@ cameras:
   #       - path: rtsp://admin:HQ-0907979696@anphukp5.vncctv.com:1026/Streaming/Unicast/channels/301
   #         roles:
   #           - detect
-  #           - rtmp
+  #           # - rtmp
   # camera7:
   #   ffmpeg:
   #     hwaccel_args: preset-nvidia-h264
@@ -83,7 +91,7 @@ cameras:
   #       - path: rtsp://admin:HQ-0907979696@anphukp5.vncctv.com:1026/Streaming/Unicast/channels/501
   #         roles:
   #           - detect
-  #           - rtmp
+  #           # - rtmp
   # camera8:
   #   ffmpeg:
   #     hwaccel_args: preset-nvidia-h264
@@ -91,7 +99,7 @@ cameras:
   #       - path: rtsp://admin:HQ-0907979696@anphukp5.vncctv.com:1030/Streaming/Unicast/channels/1001
   #         roles:
   #           - detect
-  #           - rtmp
+  #           # - rtmp
   # camera9:
   #   ffmpeg:
   #     hwaccel_args: preset-nvidia-h264
@@ -99,7 +107,7 @@ cameras:
   #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/2401
   #         roles:
   #           - detect
-  #           - rtmp
+  #           # - rtmp
   # camera10:
   #   ffmpeg:
   #     hwaccel_args: preset-nvidia-h264
@@ -107,7 +115,7 @@ cameras:
   #       - path: rtsp://kp4:hq-123456@anphukp4.vncctv.com:1026/Streaming/Unicast/channels/201
   #         roles:
   #           - detect
-  #           - rtmp
+  #           # - rtmp
 
   # camera11:
   #   ffmpeg:
@@ -210,7 +218,7 @@ model:
   height: 416
 
 snapshots: # Optional: Enable writing jpg snapshot to /media/frigate/clips (default: shown below)
-  enabled: True
+  enabled: False
   # Optional: save a clean PNG copy of the snapshot image (default: shown below)
   clean_copy: True
   # Optional: print a timestamp on the snapshots (default: shown below)

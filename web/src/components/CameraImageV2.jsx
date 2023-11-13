@@ -5,7 +5,7 @@ import useSWR from 'swr';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useResizeObserver } from '../hooks';
 
-export default function CameraImageV2({ camera, onload, searchParams = '', stretch = false, frameInterval=200 }) {
+export default function CameraImageV2({ camera, onload, searchParams = '', stretch = false, frameInterval = 200 }) {
   const { data: config } = useSWR('config');
   const apiHost = useApiHost();
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -48,11 +48,8 @@ export default function CameraImageV2({ camera, onload, searchParams = '', stret
 
   useEffect(() => {
     const loadTime = Date.now() - key;
-    console.log("Start use Effect", Date.now());
     const intervalId = setTimeout(() => {
       setKey(Date.now());
-      console.log("Start timeOut", Date.now());
-      console.log(preloadedImages.length);
       if (waitForPreload) {
         setWaitForPreload(Math.max(0, waitForMinFrames - preloadedImages.length));
         return;
@@ -73,7 +70,7 @@ export default function CameraImageV2({ camera, onload, searchParams = '', stret
           return;
         }
       }
-    }, preloadedImages.length > maxBufferFrames ? 1 : frameInterval - loadTime);
+    }, preloadedImages.length > maxBufferFrames ? 1 : frameInterval);
 
     return () => clearTimeout(intervalId);
   }, [key]);
@@ -83,15 +80,15 @@ export default function CameraImageV2({ camera, onload, searchParams = '', stret
       return;
     }
     fetch(`${apiHost}api/${name}/latest.jpg?h=${scaledHeight}${searchParams ? `&${searchParams}` : ''}`)
-    .then(res => res.blob()).then(blob => {
-      const img = new Image();
-      img.onload = (event) => {
-        setHasLoaded(true);
-        setPreloadedImages((prevImages) => [...prevImages, img]);
-        onload && onload(event);
-      };
-      img.src=URL.createObjectURL(blob);
-    });
+      .then(res => res.blob()).then(blob => {
+        const img = new Image();
+        img.onload = (event) => {
+          setHasLoaded(true);
+          setPreloadedImages((prevImages) => [...prevImages, img]);
+          onload && onload(event);
+        };
+        img.src = URL.createObjectURL(blob);
+      });
   }, [apiHost, name, searchParams, scaledHeight, config, onload]);
 
   return (
