@@ -4,7 +4,7 @@ import traceback
 
 import tensorflow as tf
 import torch
-from tensorflow_serving.apis import predict_pb2
+from tensorflow_serving.apis import predict_pb2, prediction_service_pb2_grpc
 
 from frigate.plate_detectors.alpr.plate_checker import Plate_Checker
 from frigate.plate_detectors.alpr.plate_detector_gpu import Plate_Detector
@@ -17,6 +17,7 @@ from frigate.plate_detectors.remote_plate_detector.remote_plate_detector import 
 class AlprPlateDetector(RemotePlateDetector):
     def __init__(self, grpc_channel):
         super().__init__(grpc_channel)
+        self.prediction_service_stub = prediction_service_pb2_grpc.PredictionServiceStub(grpc_channel)
         self.checker = Plate_Checker()
 
     def detect_plate(self, image):

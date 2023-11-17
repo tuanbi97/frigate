@@ -12,7 +12,8 @@ FRIGATE_LOCALHOST = "http://127.0.0.1:5000"
 PLUS_ENV_VAR = "PLUS_API_KEY"
 PLUS_API_HOST = "https://api.frigate.video"
 MAX_MESSAGE_LENGTH = 1000 * 1024 * 1024
-MODEL_SERVING_HOST = "localhost:8500"
+# MODEL_SERVING_HOST = "localhost:8500"  # tensorflow
+MODEL_SERVING_HOST = "localhost:7070"  # torchserve
 
 # Attributes
 
