@@ -1140,7 +1140,7 @@ def recognize_plates(
     frame, detected_vehicles, detector: RemotePlateDetector, frame_time=None
 ):
     results = []
-    start_frame_time = time.time()
+    # start_frame_time = time.time()
     # logging.info(len(detected_vehicles))
     for vehicle in detected_vehicles:
         time.time()
@@ -1181,5 +1181,5 @@ def recognize_plates(
             # logging.info(plate_name)
             results.append((plate_number, license_plate))
         # logging.info(time.time() - start)
-    print(f"{frame_time},{time.time() - start_frame_time}")
+    # print(f"{frame_time},{time.time() - start_frame_time}")
     return results
