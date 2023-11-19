@@ -21,7 +21,7 @@ cameras:
 detect:
   height: 1080
   width: 1920
-  fps: 5
+  fps: 10
 
   # cameras:
   # camera1: # <------ Name the camera
@@ -206,7 +206,7 @@ model:
   height: 416
 
 snapshots: # Optional: Enable writing jpg snapshot to /media/frigate/clips (default: shown below)
-  enabled: True
+  enabled: False
   # Optional: save a clean PNG copy of the snapshot image (default: shown below)
   clean_copy: True
   # Optional: print a timestamp on the snapshots (default: shown below)
