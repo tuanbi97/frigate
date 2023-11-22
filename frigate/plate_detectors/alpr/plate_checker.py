@@ -140,7 +140,7 @@ class Plate_Checker:
                 for item in self.starting_letter:
                     if input.startswith(item):
                         return True
-                print("Get False Starting Letter: ", input)
+                # print("Get False Starting Letter: ", input)
                 return False
         # Filter by a list of spam license plate
         # for item in self.spam_list:
