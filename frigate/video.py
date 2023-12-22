@@ -30,11 +30,11 @@ from frigate.motion import MotionDetector
 from frigate.motion.improved_motion import ImprovedMotionDetector
 from frigate.object_detection import RemoteObjectDetector
 from frigate.plate_detectors.alpr.retina_plate.utils.utils import img_transform
-from frigate.plate_detectors.remote_plate_detector.alpr_plate_detector import (
-    AlprPlateDetector,
-)
 from frigate.plate_detectors.remote_plate_detector.remote_plate_detector import (
     RemotePlateDetector,
+)
+from frigate.plate_detectors.remote_plate_detector.ts_plate_detector import (
+    TsPlateDetector,
 )
 from frigate.ptz.autotrack import ptz_moving_at_frame_time
 from frigate.track import ObjectTracker
@@ -543,7 +543,8 @@ def track_camera(
 
     object_tracker = NorfairTracker(config, ptz_metrics)
 
-    remote_plate_detector = AlprPlateDetector(serving_grpc_channel)
+    # remote_plate_detector = AlprPlateDetector(serving_grpc_channel)
+    remote_plate_detector = TsPlateDetector(serving_grpc_channel)
 
     frame_manager = SharedMemoryFrameManager()
 
@@ -1000,7 +1001,7 @@ def process_frames(
                     if d[0] in vehicle_objects_to_track
                 ]
                 license_results = recognize_plates(
-                    rgb_frame, detected_vehicles, remote_plate_detector
+                    rgb_frame, detected_vehicles, remote_plate_detector, frame_time
                 )
                 consolidated_detections.extend(
                     [result[1] for result in license_results]
@@ -1174,12 +1175,14 @@ def process_frames(
             frame_manager.close(f"{camera_name}{frame_time}")
 
 
-def recognize_plates(frame, detected_vehicles, detector: RemotePlateDetector):
+def recognize_plates(
+    frame, detected_vehicles, detector: RemotePlateDetector, frame_time=None
+):
     results = []
-    # start = time.time()
+    # start_frame_time = time.time()
     # logging.info(len(detected_vehicles))
     for vehicle in detected_vehicles:
-        # start = time.time()
+        time.time()
         bbox = vehicle[2]
         image = np.float32(frame[bbox[1] : bbox[3], bbox[0] : bbox[2]])
         # convert image to squares
@@ -1206,7 +1209,7 @@ def recognize_plates(frame, detected_vehicles, detector: RemotePlateDetector):
             )
             license_plate = (
                 DEFAULT_LICENSE_PLATE_LABEL,
-                b[4].item(),
+                np.float32(b[4]).item(),
                 plate_box,
                 copy.copy(vehicle[3]),
                 copy.copy(vehicle[4]),
@@ -1217,5 +1220,5 @@ def recognize_plates(frame, detected_vehicles, detector: RemotePlateDetector):
             # logging.info(plate_name)
             results.append((plate_number, license_plate))
         # logging.info(time.time() - start)
-    # logging.info(time.time() - start)
+    # print(f"{frame_time},{time.time() - start_frame_time}")
     return results
