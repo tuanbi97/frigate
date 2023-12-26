@@ -9,21 +9,13 @@ import signal
 import subprocess as sp
 import threading
 import traceback
-from wsgiref.simple_server import make_server
 
 import cv2
 import numpy as np
 from setproctitle import setproctitle
-from ws4py.server.wsgirefserver import (
-    WebSocketWSGIHandler,
-    WebSocketWSGIRequestHandler,
-    WSGIServer,
-)
-from ws4py.server.wsgiutils import WebSocketWSGIApplication
-from ws4py.websocket import WebSocket
 
 from frigate.config import BirdseyeModeEnum, FrigateConfig
-from frigate.const import BASE_DIR, BIRDSEYE_PIPE
+from frigate.const import BASE_DIR, BIRDSEYE_PIPE, CAMERA_LIVE_PIPE
 from frigate.util.image import (
     SharedMemoryFrameManager,
     copy_yuv_to_position,
@@ -113,11 +105,17 @@ class FFMpegConverter:
         out_height: int,
         quality: int,
         birdseye_rtsp: bool = False,
+        detect_live_rtsp: bool = False,
+        camera_name: str = None,
     ):
         self.bd_pipe = None
+        self.cam_pipe = None
+        self.camera_name = camera_name
 
         if birdseye_rtsp:
             self.recreate_birdseye_pipe()
+        if detect_live_rtsp:
+            self.recreate_detect_live_pipe(camera_name)
 
         ffmpeg_cmd = [
             "ffmpeg",
@@ -163,6 +161,20 @@ class FFMpegConverter:
         os.close(stdin)
         self.reading_birdseye = False
 
+    def recreate_detect_live_pipe(self, camera_name) -> None:
+        if self.cam_pipe:
+            os.close(self.cam_pipe)
+
+        pipe_path = os.path.join(CAMERA_LIVE_PIPE, camera_name)
+        if os.path.exists(pipe_path):
+            os.remove(pipe_path)
+
+        os.mkfifo(pipe_path, mode=0o777)
+        stdin = os.open(pipe_path, os.O_RDONLY | os.O_NONBLOCK)
+        self.cam_pipe = os.open(pipe_path, os.O_WRONLY)
+        os.close(stdin)
+        self.reading_cam_live = False
+
     def write(self, b) -> None:
         self.process.stdin.write(b)
 
@@ -181,6 +193,21 @@ class FFMpegConverter:
                     self.recreate_birdseye_pipe()
 
                 return
+        if self.cam_pipe:
+            try:
+                os.write(self.cam_pipe, b)
+                self.reading_cam_live = True
+            except BrokenPipeError:
+                if self.reading_cam_live:
+                    # we know the pipe was being read from and now it is not
+                    # so we should recreate the pipe to ensure no partially-read
+                    # frames exist
+                    logger.debug(
+                        "Recreating the camera pipe because it was read from and now is not"
+                    )
+                    self.recreate_detect_live_pipe(self.camera_name)
+
+                return
 
     def read(self, length):
         try:
@@ -191,6 +218,8 @@ class FFMpegConverter:
     def exit(self):
         if self.bd_pipe:
             os.close(self.bd_pipe)
+        if self.cam_pipe:
+            os.close(self.cam_pipe)
 
         self.process.terminate()
         try:
@@ -210,13 +239,12 @@ class BroadcastThread(threading.Thread):
 
     def run(self):
         while not self.stop_event.is_set():
-            buf = self.converter.read(65536)
+            buf = self.converter.read(6553600)
             if buf:
                 manager = self.websocket_server.manager
                 with manager.lock:
                     websockets = manager.websockets.copy()
                     ws_iter = iter(websockets.values())
-
                 for ws in ws_iter:
                     if (
                         not ws.terminated
@@ -605,7 +633,13 @@ class BirdsEyeFrameManager:
         return False
 
 
-def output_frames(config: FrigateConfig, video_output_queue):
+def output_frames(
+    config: FrigateConfig,
+    video_output_queue,
+    websocket_server,
+    broadcasters,
+    converters,
+):
     threading.current_thread().name = "output"
     setproctitle("frigate.output")
 
@@ -620,20 +654,8 @@ def output_frames(config: FrigateConfig, video_output_queue):
     frame_manager = SharedMemoryFrameManager()
     previous_frames = {}
 
-    # start a websocket server on 8082
-    WebSocketWSGIHandler.http_version = "1.1"
-    websocket_server = make_server(
-        "127.0.0.1",
-        8082,
-        server_class=WSGIServer,
-        handler_class=WebSocketWSGIRequestHandler,
-        app=WebSocketWSGIApplication(handler_cls=WebSocket),
-    )
     websocket_server.initialize_websockets_manager()
     websocket_thread = threading.Thread(target=websocket_server.serve_forever)
-
-    converters = {}
-    broadcasters = {}
 
     for camera, cam_config in config.cameras.items():
         width = int(
@@ -649,6 +671,19 @@ def output_frames(config: FrigateConfig, video_output_queue):
         )
         broadcasters[camera] = BroadcastThread(
             camera, converters[camera], websocket_server, stop_event
+        )
+
+        # converters[camera + "-live"] = FFMpegConverter(
+        #     cam_config.frame_shape[1],
+        #     cam_config.frame_shape[0],
+        #     width,
+        #     cam_config.live.height,
+        #     cam_config.live.quality,
+        #     detect_rtsp=True,
+        #     camera_pipe_name=camera + "-live",
+        # )
+        broadcasters[camera + "-live"] = BroadcastThread(
+            camera + "-live", converters[camera + "-live"], websocket_server, stop_event
         )
 
     if config.birdseye.enabled:

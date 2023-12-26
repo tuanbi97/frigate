@@ -10,12 +10,20 @@ from multiprocessing import Queue
 from multiprocessing.synchronize import Event as MpEvent
 from types import FrameType
 from typing import Optional
+from wsgiref.simple_server import make_server
 
 import grpc
 import psutil
 from peewee_migrate import Router
 from playhouse.sqlite_ext import SqliteExtDatabase
 from playhouse.sqliteq import SqliteQueueDatabase
+from ws4py.server.wsgirefserver import (
+    WebSocketWSGIHandler,
+    WebSocketWSGIRequestHandler,
+    WSGIServer,
+)
+from ws4py.server.wsgiutils import WebSocketWSGIApplication
+from ws4py.websocket import WebSocket
 
 from frigate.comms.dispatcher import Communicator, Dispatcher
 from frigate.comms.inter_process import InterProcessCommunicator
@@ -42,7 +50,7 @@ from frigate.log import log_process, root_configurer
 from frigate.models import Event, Recordings, RecordingsToDelete, Timeline
 from frigate.object_detection import ObjectDetectProcess
 from frigate.object_processing import TrackedObjectProcessor
-from frigate.output import output_frames
+from frigate.output import FFMpegConverter, output_frames
 from frigate.plus import PlusApi
 from frigate.ptz.autotrack import PtzAutoTrackerThread
 from frigate.ptz.onvif import OnvifController
@@ -65,6 +73,8 @@ class FrigateApp:
         self.detection_queue: Queue = mp.Queue()
         self.detectors: dict[str, ObjectDetectProcess] = {}
         self.detection_out_events: dict[str, MpEvent] = {}
+        self.live_detection_queue: Queue = mp.Queue()
+        self.live_detection_out_events: dict[str, MpEvent] = {}
         self.detection_shms: list[mp.shared_memory.SharedMemory] = []
         self.log_queue: Queue = mp.Queue()
         self.plus_api = PlusApi()
@@ -72,10 +82,13 @@ class FrigateApp:
         self.feature_metrics: dict[str, FeatureMetricsTypes] = {}
         self.ptz_metrics: dict[str, PTZMetricsTypes] = {}
         self.processes: dict[str, int] = {}
-        self.serving_grpc_channel = grpc.insecure_channel(MODEL_SERVING_HOST, options=[
-            ('grpc.max_send_message_length', MAX_MESSAGE_LENGTH),
-            ('grpc.max_receive_message_length', MAX_MESSAGE_LENGTH),
-        ])
+        self.serving_grpc_channel = grpc.insecure_channel(
+            MODEL_SERVING_HOST,
+            options=[
+                ("grpc.max_send_message_length", MAX_MESSAGE_LENGTH),
+                ("grpc.max_receive_message_length", MAX_MESSAGE_LENGTH),
+            ],
+        )
 
     def set_environment_vars(self) -> None:
         for key, value in self.config.environment_vars.items():
@@ -360,6 +373,12 @@ class FrigateApp:
             self.onvif_controller,
             self.external_event_processor,
             self.plus_api,
+            self.converters,
+            self.broadcasters,
+            self.serving_grpc_channel,
+            self.live_detection_queue,
+            self.live_detection_out_events,
+            self.stop_event,
         )
 
     def init_onvif(self) -> None:
@@ -386,6 +405,7 @@ class FrigateApp:
     def start_detectors(self) -> None:
         for name in self.config.cameras.keys():
             self.detection_out_events[name] = mp.Event()
+            self.live_detection_out_events[name + "-live"] = mp.Event()
 
             try:
                 largest_frame = max(
@@ -399,24 +419,42 @@ class FrigateApp:
                     create=True,
                     size=largest_frame,
                 )
+                shm_in_live = mp.shared_memory.SharedMemory(
+                    name=name + "-live",
+                    create=True,
+                    size=largest_frame,
+                )
             except FileExistsError:
                 shm_in = mp.shared_memory.SharedMemory(name=name)
+                shm_in_live = mp.shared_memory.SharedMemory(name=name + "-live")
 
             try:
                 shm_out = mp.shared_memory.SharedMemory(
                     name=f"out-{name}", create=True, size=20 * 6 * 4
                 )
+                shm_out_live = mp.shared_memory.SharedMemory(
+                    name=f"out-{name}-live", create=True, size=20 * 6 * 4
+                )
             except FileExistsError:
                 shm_out = mp.shared_memory.SharedMemory(name=f"out-{name}")
+                shm_out_live = mp.shared_memory.SharedMemory(name=f"out-{name}-live")
 
             self.detection_shms.append(shm_in)
             self.detection_shms.append(shm_out)
+            self.detection_shms.append(shm_in_live)
+            self.detection_shms.append(shm_out_live)
 
         for name, detector_config in self.config.detectors.items():
             self.detectors[name] = ObjectDetectProcess(
                 name,
                 self.detection_queue,
                 self.detection_out_events,
+                detector_config,
+            )
+            self.detectors[name + "-live"] = ObjectDetectProcess(
+                name + "-live",
+                self.live_detection_queue,
+                self.live_detection_out_events,
                 detector_config,
             )
 
@@ -444,12 +482,49 @@ class FrigateApp:
         self.detected_frames_processor.start()
 
     def start_video_output_processor(self) -> None:
+        # start a websocket server on 8082
+        WebSocketWSGIHandler.http_version = "1.1"
+        self.websocket_server = make_server(
+            "127.0.0.1",
+            8082,
+            server_class=WSGIServer,
+            handler_class=WebSocketWSGIRequestHandler,
+            app=WebSocketWSGIApplication(handler_cls=WebSocket),
+        )
+        self.converters = {}
+        self.broadcasters = {}
+        for camera, cam_config in self.config.cameras.items():
+            width = int(
+                cam_config.live.height
+                * (cam_config.frame_shape[1] / cam_config.frame_shape[0])
+            )
+            # self.converters[camera] = FFMpegConverter(
+            #     cam_config.frame_shape[1],
+            #     cam_config.frame_shape[0],
+            #     width,
+            #     cam_config.live.height,
+            #     cam_config.live.quality,
+            # )
+
+            self.converters[camera + "-live"] = FFMpegConverter(
+                cam_config.frame_shape[1],
+                cam_config.frame_shape[0],
+                width,
+                cam_config.live.height,
+                cam_config.live.quality,
+                detect_live_rtsp=True,
+                camera_name=camera + "-live",
+            )
+
         output_processor = mp.Process(
             target=output_frames,
             name="output_processor",
             args=(
                 self.config,
                 self.video_output_queue,
+                self.websocket_server,
+                self.broadcasters,
+                self.converters,
             ),
         )
         output_processor.daemon = True
@@ -476,7 +551,7 @@ class FrigateApp:
                     self.detected_frames_queue,
                     self.camera_metrics[name],
                     self.ptz_metrics[name],
-                    self.serving_grpc_channel
+                    self.serving_grpc_channel,
                 ),
             )
             camera_process.daemon = True
@@ -556,7 +631,13 @@ class FrigateApp:
         self.stats_emitter.start()
 
     def start_watchdog(self) -> None:
-        self.frigate_watchdog = FrigateWatchdog(self.detectors, self.stop_event)
+        # debug detectors live
+        # detectors = self.detectors
+        detectors = {}
+        # for key in self.detectors:
+        #     if key.split("-")[-1] != "live":
+        #         detectors[key] = self.detectors[key]
+        self.frigate_watchdog = FrigateWatchdog(detectors, self.stop_event)
         self.frigate_watchdog.start()
 
     def check_shm(self) -> None:

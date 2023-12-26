@@ -3,12 +3,14 @@ import copy
 import glob
 import json
 import logging
+import multiprocessing as mp
 import os
 import subprocess as sp
 import time
 import traceback
 from datetime import datetime, timedelta, timezone
 from functools import reduce
+from multiprocessing.synchronize import Event as MpEvent
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -42,7 +44,12 @@ from frigate.const import (
 )
 from frigate.events.external import ExternalEventProcessor
 from frigate.models import Event, Recordings, Timeline
+from frigate.motion.improved_motion import ImprovedMotionDetector
+from frigate.object_detection import RemoteObjectDetector
 from frigate.object_processing import TrackedObject
+from frigate.plate_detectors.remote_plate_detector.ts_plate_detector import (
+    TsPlateDetector,
+)
 from frigate.plus import PlusApi
 from frigate.ptz.onvif import OnvifController
 from frigate.record.export import PlaybackFactorEnum, RecordingExporter
@@ -55,6 +62,7 @@ from frigate.util.builtin import (
 )
 from frigate.util.services import ffprobe_stream, restart_frigate, vainfo_hwaccel
 from frigate.version import VERSION
+from frigate.video_live import process_live_video
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +80,12 @@ def create_app(
     onvif: OnvifController,
     external_processor: ExternalEventProcessor,
     plus_api: PlusApi,
+    converters,
+    broadcasters,
+    serving_grpc_channel,
+    live_detection_queue: mp.Queue,
+    live_detection_out_events,
+    stop_event: MpEvent,
 ):
     app = Flask(__name__)
 
@@ -101,6 +115,12 @@ def create_app(
     app.plus_api = plus_api
     app.camera_error_image = None
     app.hwaccel_errors = []
+    app.converters = converters
+    app.broadcasters = broadcasters
+    app.serving_grpc_channel = serving_grpc_channel
+    app.live_detection_queue = live_detection_queue
+    app.live_detection_out_events = live_detection_out_events
+    app.stop_event = stop_event
 
     app.register_blueprint(bp)
 
@@ -1981,3 +2001,53 @@ def logs(service: str):
             jsonify({"success": False, "message": f"Could not find log file: {e}"}),
             500,
         )
+
+
+@bp.route("/camera/<camera_name>:activate_live_detect", methods=["POST"])
+def activate_live_detect(camera_name: str):
+    print(current_app.converters.keys())
+    config = current_app.frigate_config
+    camera_config = config.cameras[camera_name]
+    object_detector = RemoteObjectDetector(
+        camera_name + "-live",
+        config.model.merged_labelmap,
+        current_app.live_detection_queue,
+        current_app.live_detection_out_events[camera_name + "-live"],
+        config.model,
+        current_app.stop_event,
+    )
+    motion_detector = ImprovedMotionDetector(
+        camera_config.frame_shape,
+        camera_config.motion,
+        config.detect.fps,
+        mp.Value("i", 0),
+        mp.Value("i", 25),
+        mp.Value("i", 30),
+    )
+    remote_plate_detector = TsPlateDetector(current_app.serving_grpc_channel)
+    objects_to_track = config.objects.track
+    vehicle_objects_to_track = config.objects.vehicle_track
+    object_filters = config.objects.filters
+    converter = current_app.converters[camera_name + "-live"]
+    live_video_processor = mp.Process(
+        target=process_live_video,
+        name="live_processor",
+        args=(
+            camera_name,
+            camera_config.frame_shape,
+            camera_config,
+            config.model,
+            camera_config.detect,
+            motion_detector,  # motion detector
+            object_detector,
+            remote_plate_detector,
+            objects_to_track,
+            vehicle_objects_to_track,
+            object_filters,
+            converter,
+            current_app.stop_event,
+        ),
+    )
+    live_video_processor.start()
+    logger.info(f"Live processor started for {camera_name}: {live_video_processor.pid}")
+    return jsonify({"status": "success"})

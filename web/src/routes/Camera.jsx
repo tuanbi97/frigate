@@ -155,22 +155,63 @@ export default function Camera({ camera }) {
         </Fragment>
       );
     }
-  } else if (viewMode === 'debug') {
-    player = (
-      <Fragment>
-        <div>
-          <AutoUpdatingCameraImage camera={camera} searchParams={searchParams} />
-        </div>
+  }
+  else if (viewMode === 'debug') {
+    if (viewSource == 'mse' && restreamEnabled) {
+      if ('MediaSource' in window) {
+        player = (
+          <Fragment>
+            <div className="max-w-5xl">
+              <video-stream
+                mode="mse"
+                src={
+                  new URL(`${baseUrl.replace(/^http/, 'ws')}live/webrtc/api/ws?src=${cameraConfig.live.stream_name}-live`)
+                }
+              />
+            </div>
+          </Fragment>
+        );
+      } else {
+        player = (
+          <Fragment>
+            <div className="w-5xl text-center text-sm">
+              MSE is not supported on iOS devices. You'll need to use jsmpeg or webRTC. See the docs for more info.
+            </div>
+          </Fragment>
+        );
+      }
+    } else if (viewSource == 'webrtc' && restreamEnabled) {
+      player = (
+        <Fragment>
+          <div className="max-w-5xl">
+            <WebRtcPlayer camera={`${cameraConfig.live.stream_name}-live`} />
+          </div>
+        </Fragment>
+      );
+    } else {
+      player = (
+        <Fragment>
+          <div>
+            <JSMpegPlayer camera={`${camera}-live`} width={jsmpegWidth} height={cameraConfig.live.height} />
+          </div>
+        </Fragment>
+      );
+    }
+    // player = (
+    //   <Fragment>
+    //     <div>
+    //       <AutoUpdatingCameraImage camera={camera} searchParams={searchParams} />
+    //     </div>
 
-        <Button onClick={handleToggleSettings} type="text">
-          <span className="w-5 h-5">
-            <SettingsIcon />
-          </span>{' '}
-          <span>{showSettings ? 'Hide' : 'Show'} Options</span>
-        </Button>
-        {showSettings ? <Card header="Options" elevated={false} content={optionContent} /> : null}
-      </Fragment>
-    );
+    //     <Button onClick={handleToggleSettings} type="text">
+    //       <span className="w-5 h-5">
+    //         <SettingsIcon />
+    //       </span>{' '}
+    //       <span>{showSettings ? 'Hide' : 'Show'} Options</span>
+    //     </Button>
+    //     {showSettings ? <Card header="Options" elevated={false} content={optionContent} /> : null}
+    //   </Fragment>
+    // );
   }
 
   return (

@@ -6,6 +6,11 @@ CLIPS_DIR = f"{BASE_DIR}/clips"
 RECORD_DIR = f"{BASE_DIR}/recordings"
 EXPORT_DIR = f"{BASE_DIR}/exports"
 BIRDSEYE_PIPE = "/tmp/cache/birdseye"
+CAMERA_LIVE_PIPE = "/tmp/cache/camera_live"
+import os
+
+if not os.path.exists(CAMERA_LIVE_PIPE):
+    os.makedirs(CAMERA_LIVE_PIPE)
 CACHE_DIR = "/tmp/cache"
 YAML_EXT = (".yaml", ".yml")
 FRIGATE_LOCALHOST = "http://127.0.0.1:5000"

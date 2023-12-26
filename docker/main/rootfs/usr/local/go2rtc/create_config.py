@@ -7,7 +7,7 @@ import sys
 import yaml
 
 sys.path.insert(0, "/opt/frigate")
-from frigate.const import BIRDSEYE_PIPE  # noqa: E402
+from frigate.const import BIRDSEYE_PIPE, CAMERA_LIVE_PIPE  # noqa: E402
 from frigate.ffmpeg_presets import (  # noqa: E402
     parse_preset_hardware_acceleration_encode,
 )
@@ -131,6 +131,16 @@ if config.get("birdseye", {}).get("restream", False):
         go2rtc_config["streams"]["birdseye"] = ffmpeg_cmd
     else:
         go2rtc_config["streams"] = {"birdseye": ffmpeg_cmd}
+
+for camera in config.get("cameras", []):
+    input = f"-f rawvideo -pix_fmt yuv420p -video_size {1920}x{1080} -r 10 -i {CAMERA_LIVE_PIPE + '/' + camera + '-live'}"
+    ffmpeg_cmd = f"exec:{parse_preset_hardware_acceleration_encode(config.get('ffmpeg', {}).get('hwaccel_args'), input, '-rtsp_transport tcp -f rtsp {output}')}"
+
+    camera_live_name = camera + "-live"
+    if go2rtc_config.get("streams"):
+        go2rtc_config["streams"][camera_live_name] = ffmpeg_cmd
+    else:
+        go2rtc_config["streams"] = {camera_live_name: ffmpeg_cmd}
 
 # Write go2rtc_config to /dev/shm/go2rtc.yaml
 with open("/dev/shm/go2rtc.yaml", "w") as f:

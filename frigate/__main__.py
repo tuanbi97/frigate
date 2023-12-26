@@ -1,5 +1,8 @@
 import faulthandler
+import sys
 import threading
+
+print(sys.path)
 
 from flask import cli
 
